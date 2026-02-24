@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Remix: Remix: Food AI Rescue",
+  "description": "Platform penyelamatan surplus makanan berbasis AI dan komunitas.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}

@@ -1,0 +1,451 @@
+
+import React, { useState, useEffect } from 'react';
+import { User, MapPin, Shield, HelpCircle, LogOut, Moon, Sun, Store, Heart, ChevronRight, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Button } from '../components/Button';
+import { UserRole, UserData, SavedItem, ClaimHistoryItem, FoodItem, FAQItem, Address } from '../../types';
+import { ProfileHeader } from './components/ProfileHeader';
+import { EditProfile } from './components/EditProfile';
+import { AddressList } from './components/AddressList';
+import { SecuritySettings } from './components/SecuritySettings';
+import { FaqSection } from './components/FaqSection';
+import { SavedItems } from './components/SavedItems';
+import { ClaimHistory, ReportModal, ReviewModal } from './components/ClaimHistory';
+import { ClaimHistoryDetail } from './components/ClaimHistoryDetail'; 
+import { HistoryList } from '../volunteer/components/HistoryList';
+import { FoodDetail } from '../receiver/components/FoodDetail';
+import { db } from '../../services/db';
+
+interface ProfileIndexProps {
+  role: UserRole;
+  currentUser: UserData | null;
+  onLogout: () => void;
+  isDarkMode: boolean;
+  toggleTheme: () => void;
+  onNavigate: (view: string) => void;
+  initialView?: 'main' | 'address' | 'history' | 'saved' | 'edit' | 'security' | 'faq';
+  savedItems: SavedItem[];
+  setSavedItems: React.Dispatch<React.SetStateAction<SavedItem[]>>;
+  claimHistory: ClaimHistoryItem[];
+  setClaimHistory: React.Dispatch<React.SetStateAction<ClaimHistoryItem[]>>;
+  availableFoodForDetail: FoodItem[];
+  onClaim: (item: FoodItem, quantity: string) => void;
+  globalFAQs: FAQItem[];
+  stats: {
+      label1: string; value1: number | string;
+      label2: string; value2: number | string;
+      label3: string; value3: number;
+  };
+  onSubmitReview?: (claimId: string, rating: number, comment: string, media: string[]) => void;
+  onSubmitReport?: (claimId: string, reason: string, description: string, evidence: string[]) => void;
+  onRefresh?: () => void; 
+  allAddresses?: Address[];
+}
+
+const MenuButton = ({ icon: Icon, label, onClick, last }: any) => (
+    <button 
+        onClick={onClick}
+        className={`w-full flex items-center justify-between p-4 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors ${!last ? 'border-b border-stone-100 dark:border-stone-800' : ''}`}
+    >
+        <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-950 flex items-center justify-center text-stone-500 dark:text-stone-400">
+                <Icon className="w-4 h-4" />
+            </div>
+            <span className="text-stone-900 dark:text-stone-200 text-sm font-medium">{label}</span>
+        </div>
+        <ChevronRight className="w-4 h-4 text-stone-400" />
+    </button>
+);
+
+export const ProfileIndex: React.FC<ProfileIndexProps> = ({ 
+    role, 
+    currentUser, 
+    onLogout, 
+    isDarkMode, 
+    toggleTheme,
+    onNavigate,
+    initialView = 'main',
+    savedItems,
+    setSavedItems,
+    claimHistory,
+    setClaimHistory,
+    availableFoodForDetail,
+    onClaim,
+    globalFAQs,
+    stats,
+    onSubmitReview,
+    onSubmitReport,
+    onRefresh,
+    allAddresses = []
+}) => {
+    const [currentView, setCurrentView] = useState<string>(initialView);
+    const [userData, setUserData] = useState<UserData | null>(currentUser);
+    const [addresses, setAddresses] = useState<Address[]>([]);
+    const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+    
+    // For Food Detail in Saved Items
+    const [selectedFoodItem, setSelectedFoodItem] = useState<FoodItem | null>(null);
+    
+    // For Claim History Detail & Actions
+    const [selectedHistoryItem, setSelectedHistoryItem] = useState<ClaimHistoryItem | null>(null);
+    const [reportModalOpen, setReportModalOpen] = useState(false);
+    const [reviewModalOpen, setReviewModalOpen] = useState(false);
+
+    useEffect(() => {
+        if (currentUser) setUserData(currentUser);
+    }, [currentUser]);
+
+    useEffect(() => {
+        if (initialView) {
+            setCurrentView(initialView);
+        }
+    }, [initialView]);
+
+    useEffect(() => {
+        if (currentView === 'history') {
+            setIsHistoryLoading(true);
+            const timer = setTimeout(() => {
+                setIsHistoryLoading(false);
+            }, 800);
+            return () => clearTimeout(timer);
+        }
+    }, [currentView]);
+
+    useEffect(() => {
+        const fetchAddresses = async () => {
+            if (currentUser?.id) {
+                try {
+                    const data = await db.getAddresses(currentUser.id);
+                    setAddresses(data);
+                } catch (e) {
+                    console.error(e);
+                }
+            }
+        };
+        fetchAddresses();
+    }, [currentUser]);
+
+    const handleUpdateUser = (data: UserData) => {
+        setUserData(data);
+    };
+
+    const handleAddAddress = async (addr: Address) => {
+        if (!currentUser) return;
+        const newAddr = { ...addr, userId: currentUser.id, role: currentUser.role };
+        const saved = await db.addAddress(newAddr);
+        setAddresses([...addresses, saved]);
+    };
+
+    const handleUpdateAddress = async (addr: Address) => {
+        const updatedAddr = { ...addr, role: currentUser?.role || addr.role };
+        await db.updateAddress(updatedAddr);
+        setAddresses(prev => prev.map(a => a.id === addr.id ? updatedAddr : a.isPrimary && updatedAddr.isPrimary ? { ...a, isPrimary: false } : a));
+    };
+
+    const handleDeleteAddress = async (id: string) => {
+        await db.deleteAddress(id);
+        setAddresses(prev => prev.filter(a => a.id !== id));
+    };
+
+    const handleToggleSave = (item: FoodItem) => {
+        if (savedItems.some(s => s.id === item.id)) {
+            setSavedItems(savedItems.filter(s => s.id !== item.id));
+        } else {
+            setSavedItems([...savedItems, { id: item.id, name: item.name, provider: item.providerName, image: item.imageUrl, status: 'available' }]);
+        }
+    };
+
+    const handleCompleteClaim = async () => {
+        if (selectedHistoryItem) {
+            try {
+                await db.updateClaimStatus(selectedHistoryItem.id, 'completed');
+                setClaimHistory(prev => prev.map(c => c.id === selectedHistoryItem.id ? { ...c, status: 'completed' } : c));
+                
+                // Update selected item status locally to reflect change immediately without closing modal if desired
+                setSelectedHistoryItem(prev => prev ? { ...prev, status: 'completed' } : null);
+                
+                alert("Pesanan berhasil diselesaikan!");
+            } catch (e) {
+                console.error("Gagal update status", e);
+                alert("Gagal memperbarui status pesanan.");
+            }
+        }
+    };
+
+    const handleReportSubmit = (reason: string, description: string, evidence: string[]) => {
+        if (selectedHistoryItem && onSubmitReport) {
+            onSubmitReport(selectedHistoryItem.id, reason, description, evidence);
+            setReportModalOpen(false);
+            
+            // Update local state to show 'Reported' status immediately
+            // Note: reportEvidence in ClaimHistoryItem is currently string | undefined in types.ts, 
+            // but we are passing array for upload. The type definition might need update or casting.
+            // For now we store the first image or stringify it to keep UI consistent if it expects string
+            const evidenceStr = evidence.length > 0 ? JSON.stringify(evidence) : "";
+            
+            setSelectedHistoryItem(prev => prev ? { 
+                ...prev, 
+                isReported: true,
+                reportReason: reason,
+                reportDescription: description,
+                reportEvidence: evidenceStr
+            } : null);
+            alert("Laporan Anda telah dikirim.");
+        }
+    };
+
+    const handleReviewSubmit = (rating: number, review: string, media: string[]) => {
+        if (selectedHistoryItem && onSubmitReview) {
+            onSubmitReview(selectedHistoryItem.id, rating, review, media);
+            setReviewModalOpen(false);
+            
+            // Update local state to show rating immediately
+            setSelectedHistoryItem(prev => prev ? { ...prev, rating, review } : null);
+            alert("Terima kasih atas ulasan Anda!");
+        }
+    };
+
+    // Sub-view renders
+    if (currentView === 'edit' && userData) {
+        return (
+            <div className="p-4 md:p-8 pb-32">
+                <div className="flex items-center gap-4 mb-6">
+                    <button onClick={() => setCurrentView('main')} className="p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+                        <ArrowLeft className="w-6 h-6 text-stone-900 dark:text-white" />
+                    </button>
+                    <h2 className="text-xl font-bold text-stone-900 dark:text-white">Edit Profil</h2>
+                </div>
+                <EditProfile userData={userData} onSave={handleUpdateUser} />
+            </div>
+        );
+    }
+
+    if (currentView === 'address') {
+        return (
+            <div className="pb-32">
+                <div className="flex items-center gap-4 p-4 md:p-8 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-10">
+                    <button onClick={() => setCurrentView('main')} className="p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+                        <ArrowLeft className="w-6 h-6 text-stone-900 dark:text-white" />
+                    </button>
+                    <h2 className="text-xl font-bold text-stone-900 dark:text-white">Alamat Tersimpan</h2>
+                </div>
+                <AddressList 
+                    addresses={addresses} 
+                    onAddAddress={handleAddAddress} 
+                    onUpdateAddress={handleUpdateAddress} 
+                    onDeleteAddress={handleDeleteAddress} 
+                    role={role}
+                />
+            </div>
+        );
+    }
+
+    if (currentView === 'security') {
+        return (
+            <div className="pb-32">
+                <div className="flex items-center gap-4 p-4 md:p-8 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-10">
+                    <button onClick={() => setCurrentView('main')} className="p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+                        <ArrowLeft className="w-6 h-6 text-stone-900 dark:text-white" />
+                    </button>
+                    <h2 className="text-xl font-bold text-stone-900 dark:text-white">Keamanan</h2>
+                </div>
+                <SecuritySettings />
+            </div>
+        );
+    }
+
+    if (currentView === 'faq') {
+        return (
+            <div className="pb-32">
+                <div className="flex items-center gap-4 p-4 md:p-8 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-10">
+                    <button onClick={() => setCurrentView('main')} className="p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+                        <ArrowLeft className="w-6 h-6 text-stone-900 dark:text-white" />
+                    </button>
+                    <h2 className="text-xl font-bold text-stone-900 dark:text-white">Bantuan & FAQ</h2>
+                </div>
+                <FaqSection faqs={globalFAQs} />
+            </div>
+        );
+    }
+
+    if (currentView === 'saved') {
+        if (selectedFoodItem) {
+            return (
+                <FoodDetail 
+                    item={selectedFoodItem} 
+                    onBack={() => setSelectedFoodItem(null)} 
+                    onClaim={(qty) => { onClaim(selectedFoodItem, qty); setSelectedFoodItem(null); }} 
+                    isSaved={true}
+                    onToggleSave={() => handleToggleSave(selectedFoodItem)}
+                    claimHistory={claimHistory}
+                />
+            );
+        }
+        return (
+            <div className="pb-32">
+                <div className="flex items-center gap-4 p-4 md:p-8 bg-white dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 sticky top-0 z-10">
+                    <button onClick={() => setCurrentView('main')} className="p-2 rounded-full hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors">
+                        <ArrowLeft className="w-6 h-6 text-stone-900 dark:text-white" />
+                    </button>
+                    <h2 className="text-xl font-bold text-stone-900 dark:text-white">Makanan Tersimpan</h2>
+                </div>
+                <SavedItems 
+                    items={savedItems} 
+                    onDelete={(ids) => setSavedItems(prev => prev.filter(i => !ids.has(i.id)))}
+                    onDetail={(saved) => {
+                        const food = availableFoodForDetail.find(f => f.id === saved.id);
+                        if (food) setSelectedFoodItem(food);
+                        else alert("Item ini sudah tidak tersedia di inventory.");
+                    }}
+                />
+            </div>
+        );
+    }
+
+    if (currentView === 'history') {
+        // Jika ada item riwayat yang dipilih, tampilkan detail
+        if (selectedHistoryItem && role !== 'volunteer') {
+            return (
+                <>
+                    <ClaimHistoryDetail 
+                        item={selectedHistoryItem}
+                        onBack={() => setSelectedHistoryItem(null)}
+                        onComplete={handleCompleteClaim}
+                        onReport={() => setReportModalOpen(true)}
+                        onReview={() => setReviewModalOpen(true)}
+                    />
+                    {reportModalOpen && (
+                        <ReportModal 
+                            item={selectedHistoryItem} 
+                            onClose={() => setReportModalOpen(false)}
+                            onSubmit={handleReportSubmit}
+                        />
+                    )}
+                    {reviewModalOpen && (
+                        <ReviewModal 
+                            item={selectedHistoryItem} 
+                            onClose={() => setReviewModalOpen(false)}
+                            onSubmit={handleReviewSubmit}
+                        />
+                    )}
+                </>
+            );
+        }
+
+        return (
+            <div className="pb-32 bg-[#FDFBF7] dark:bg-stone-950 min-h-screen">
+                <div className="px-6 pt-8 pb-2 md:px-8 bg-[#FDFBF7] dark:bg-stone-900 sticky top-0 z-10 flex justify-between items-start">
+                    <div>
+                        <h1 className="text-2xl font-black text-stone-900 dark:text-white leading-none tracking-tight">
+                            {role === 'volunteer' ? 'Riwayat Misi' : 'Riwayat Makanan'}
+                        </h1>
+                        <p className="text-stone-500 dark:text-stone-400 mt-1 text-xs font-bold">
+                            {role === 'volunteer' ? 'Jejak kontribusi kebaikan Anda.' : 'Surplus makanan yang telah diselamatkan.'}
+                        </p>
+                    </div>
+                    {onRefresh && (
+                        <button
+                            onClick={onRefresh}
+                            disabled={isHistoryLoading}
+                            className="w-10 h-10 bg-white dark:bg-stone-800 text-stone-500 hover:text-orange-500 border border-stone-200 dark:border-stone-700 rounded-xl flex items-center justify-center transition-all shadow-sm hover:shadow-md active:scale-90 disabled:opacity-50"
+                            title="Refresh"
+                        >
+                            <RefreshCw className={`w-5 h-5 ${isHistoryLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                    )}
+                </div>
+                
+                {role === 'volunteer' ? (
+                    <div className="px-4 md:px-8 pt-4">
+                        <HistoryList 
+                            history={claimHistory
+                                .filter(c => c.courierName === currentUser?.name && c.status === 'completed')
+                                .map(c => {
+                                    const providerAddr = allAddresses.find(a => String(a.userId) === String(c.providerId));
+                                    const receiverAddr = allAddresses.find(a => String(a.userId) === String(c.receiverId));
+
+                                    return { 
+                                        // FIX: ensure id is treated as string before regex
+                                        id: parseInt(String(c.id).replace(/\D/g, '') || String(Date.now())), 
+                                        originalId: c.id,
+                                        date: c.date, 
+                                        from: providerAddr ? providerAddr.label : c.providerName, 
+                                        to: receiverAddr ? receiverAddr.label : 'Penerima', 
+                                        items: c.foodName, 
+                                        points: 150,
+                                        distance: 2.5 
+                                    };
+                                })
+                            }
+                            onFindMissions={() => onNavigate('dashboard')} 
+                        />
+                    </div>
+                ) : (
+                    <ClaimHistory 
+                        history={claimHistory} 
+                        onSelectItem={setSelectedHistoryItem} 
+                        onSubmitReview={onSubmitReview}
+                        onSubmitReport={onSubmitReport}
+                        isLoading={isHistoryLoading} 
+                        onRefresh={onRefresh} 
+                    />
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="pb-32 animate-in fade-in">
+            {userData && (
+                <ProfileHeader 
+                    userData={userData} 
+                    role={role} 
+                    bannerImage={null} 
+                    onEditBanner={() => {}} 
+                    onEditAvatar={() => {}} 
+                    stats={stats}
+                />
+            )}
+
+            <div className="mt-8 px-4 space-y-3 max-w-lg mx-auto">
+                {role === 'receiver' && (
+                    <>
+                        <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2 ml-2">Aktivitas</h3>
+                        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-sm">
+                            <MenuButton icon={Heart} label="Makanan Tersimpan" onClick={() => setCurrentView('saved')} last />
+                        </div>
+                    </>
+                )}
+                
+                {role === 'provider' && (
+                    <>
+                        <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2 ml-2">Aktivitas Donatur</h3>
+                        <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-sm">
+                            <MenuButton icon={Store} label="Riwayat Donasi" onClick={() => setCurrentView('history')} last />
+                        </div>
+                    </>
+                )}
+
+                <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2 mt-6 ml-2">Akun</h3>
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden shadow-sm">
+                    <MenuButton icon={User} label="Edit Profil" onClick={() => setCurrentView('edit')} />
+                    {role !== 'volunteer' && (
+                        <MenuButton icon={MapPin} label="Alamat Tersimpan" onClick={() => setCurrentView('address')} />
+                    )}
+                    <MenuButton icon={Shield} label="Keamanan & Privasi" onClick={() => setCurrentView('security')} />
+                    <button onClick={toggleTheme} className="w-full flex items-center justify-between p-4 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors border-b border-stone-100 dark:border-stone-800">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-stone-100 dark:bg-stone-950 flex items-center justify-center text-stone-500 dark:text-stone-400">{isDarkMode ? <Moon className="w-4 h-4 text-orange-400" /> : <Sun className="w-4 h-4 text-orange-500" />}</div>
+                            <span className="text-stone-900 dark:text-stone-200 text-sm font-medium">Tema Aplikasi</span>
+                        </div>
+                        <span className="text-xs text-stone-500 mr-2">{isDarkMode ? 'Gelap' : 'Terang'}</span>
+                    </button>
+                    <MenuButton icon={HelpCircle} label="Bantuan & FAQ" onClick={() => setCurrentView('faq')} last />
+                </div>
+                
+                <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden p-2 shadow-sm mt-6">
+                    <Button variant="danger" onClick={onLogout} className="flex items-center justify-center gap-2"><LogOut className="w-4 h-4" /> Keluar Akun</Button>
+                </div>
+            </div>
+        </div>
+    );
+};
