@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Store, Truck, User, Edit, Mail, Phone, Package, Star, Zap, CheckCircle, Clock, Award, Image, X, ChevronRight, Lock, Heart } from 'lucide-react';
 import { UserRole, UserData, Badge } from '../../../types';
 import { SOCIAL_SYSTEM } from '../../../constants';
@@ -25,6 +25,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
     const [coverMode, setCoverMode] = useState<'image' | 'badge'>(savedBadgeId ? 'badge' : 'image');
     const [customBanner, setCustomBanner] = useState<string | null>(initialBanner);
     const [selectedBadgeId, setSelectedBadgeId] = useState<string>(savedBadgeId);
+
+    useEffect(() => {
+        const newSavedBadgeId = userData.selectedBadgeId ? String(userData.selectedBadgeId) : '';
+        setCoverMode(newSavedBadgeId ? 'badge' : 'image');
+        setSelectedBadgeId(newSavedBadgeId);
+    }, [userData.selectedBadgeId]);
 
     // UI States
     const [showEditMenu, setShowEditMenu] = useState(false);

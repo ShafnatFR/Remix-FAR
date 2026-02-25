@@ -504,6 +504,7 @@ const App: React.FC = () => {
                 onRefresh={fetchData}
                 allAddresses={allAddresses}
                 globalBadges={globalBadges}
+                onUpdateUser={handleUpdateUser}
             />
         );
 
