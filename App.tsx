@@ -228,7 +228,8 @@ const App: React.FC = () => {
             phone: data.phone || '08123456789',
             address: data.address || '',
             avatar: data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(finalName)}&background=random`,
-            isNewUser: data.isNewUser // Capture isNewUser from login/register response
+            isNewUser: data.isNewUser, // Capture isNewUser from login/register response
+            selectedBadgeId: data.selectedBadgeId || ''
         };
 
         setCurrentUser(userObject);
@@ -242,6 +243,21 @@ const App: React.FC = () => {
         }
 
         setCurrentView('dashboard');
+    };
+
+    const handleUpdateUser = (updatedData: Partial<UserData>) => {
+        if (!currentUser) return;
+
+        const newUser = { ...currentUser, ...updatedData };
+        setCurrentUser(newUser);
+
+        // SYNC WITH PERSISTENT SESSION
+        const sessionString = JSON.stringify(newUser);
+        if (localStorage.getItem('far_session')) {
+            localStorage.setItem('far_session', sessionString);
+        } else {
+            sessionStorage.setItem('far_session', sessionString);
+        }
     };
 
     const handleRegister = (formData: any, remember: boolean = false) => {
@@ -267,17 +283,11 @@ const App: React.FC = () => {
         if (!currentUser) return;
 
         // 1. Optimistic Update Local State
-        const updatedUser = { ...currentUser, isNewUser: false };
-        setCurrentUser(updatedUser);
-
-        // Update session storage as well to keep state consistent on refresh
-        const sessionKey = localStorage.getItem('far_session') ? 'far_session' : 'far_session'; // Check where it is stored
-        if (localStorage.getItem('far_session')) localStorage.setItem('far_session', JSON.stringify(updatedUser));
-        else sessionStorage.setItem('far_session', JSON.stringify(updatedUser));
+        handleUpdateUser({ isNewUser: false });
 
         // 2. Persist to DB (Send false, backend handles 0 conversion)
         try {
-            await db.upsertUser(updatedUser);
+            await db.upsertUser({ ...currentUser, isNewUser: false });
             console.log("User tour status updated.");
         } catch (error) {
             console.error("Failed to update user tour status:", error);

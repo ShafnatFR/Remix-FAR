@@ -40,6 +40,7 @@ interface ProfileIndexProps {
     onRefresh?: () => void;
     allAddresses?: Address[];
     globalBadges?: Badge[];
+    onUpdateUser?: (data: Partial<UserData>) => void;
 }
 
 const MenuButton = ({ icon: Icon, label, onClick, last }: any) => (
@@ -77,7 +78,8 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
     onSubmitReport,
     onRefresh,
     allAddresses = [],
-    globalBadges = []
+    globalBadges = [],
+    onUpdateUser
 }) => {
     const [currentView, setCurrentView] = useState<string>(initialView);
     const [userData, setUserData] = useState<UserData | null>(currentUser);
@@ -208,6 +210,27 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
             // Update local state to show rating immediately
             setSelectedHistoryItem(prev => prev ? { ...prev, rating, review } : null);
             alert("Terima kasih atas ulasan Anda!");
+        }
+    };
+
+    const handleBadgeSelect = async (badgeId: string) => {
+        if (!userData) return;
+        try {
+            const updatedUser = { ...userData, selectedBadgeId: badgeId };
+            // Ensure we don't send sensitive/stale data via upsertUser (matches EditProfile logic)
+            const payload = { ...updatedUser };
+            delete (payload as any).password;
+            delete (payload as any).points;
+            delete (payload as any).role;
+            delete (payload as any).status;
+            delete (payload as any).joinDate;
+
+            await db.upsertUser(payload);
+            setUserData(updatedUser);
+            if (onUpdateUser) onUpdateUser({ selectedBadgeId: badgeId });
+        } catch (e) {
+            console.error("Failed to save badge", e);
+            alert("Gagal menyimpan badge sampul.");
         }
     };
 
@@ -412,6 +435,7 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
                     onEditAvatar={() => { }}
                     stats={stats}
                     badges={globalBadges}
+                    onBadgeSelect={handleBadgeSelect}
                 />
             )}
 

@@ -10,6 +10,7 @@ interface ProfileHeaderProps {
     bannerImage: string | null;
     onEditBanner: () => void;
     onEditAvatar: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onBadgeSelect?: (badgeId: string) => void;
     stats?: {
         label1: string; value1: number | string;
         label2: string; value2: number | string;
@@ -18,11 +19,12 @@ interface ProfileHeaderProps {
     badges?: Badge[];
 }
 
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, bannerImage: initialBanner, onEditBanner, onEditAvatar, stats, badges = [] }) => {
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, bannerImage: initialBanner, onEditBanner, onEditAvatar, onBadgeSelect, stats, badges = [] }) => {
     // State management for Cover System
-    const [coverMode, setCoverMode] = useState<'image' | 'badge'>('image');
+    const savedBadgeId = userData.selectedBadgeId ? String(userData.selectedBadgeId) : '';
+    const [coverMode, setCoverMode] = useState<'image' | 'badge'>(savedBadgeId ? 'badge' : 'image');
     const [customBanner, setCustomBanner] = useState<string | null>(initialBanner);
-    const [selectedBadgeId, setSelectedBadgeId] = useState<string>('');
+    const [selectedBadgeId, setSelectedBadgeId] = useState<string>(savedBadgeId);
 
     // UI States
     const [showEditMenu, setShowEditMenu] = useState(false);
@@ -40,7 +42,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
 
     // Get Badges (Achievements) distinct from Rank
     const availableBadges = (badges.length > 0 ? badges : []).filter(b => b.role === 'all' || b.role === role);
-    const activeBadge = availableBadges.find(b => b.id === selectedBadgeId);
+    const activeBadge = availableBadges.find(b => String(b.id) === String(selectedBadgeId));
 
     // --- LOGIC BADGE LEVEL ICON ---
     // Mengambil ikon rank berdasarkan poin user dari SOCIAL_SYSTEM
@@ -60,16 +62,20 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
             setCoverMode('image');
             onEditBanner();
             const url = prompt("Masukkan URL Gambar Banner:");
-            if (url) setCustomBanner(url);
+            if (url) {
+                setCustomBanner(url);
+                if (onBadgeSelect) onBadgeSelect(''); // Clear selected badge when switching to image
+            }
         } else {
             setShowBadgeSelector(true);
         }
     };
 
     const applyBadgeCover = (badgeId: string) => {
-        setSelectedBadgeId(badgeId);
+        setSelectedBadgeId(String(badgeId));
         setCoverMode('badge');
         setShowBadgeSelector(false);
+        if (onBadgeSelect) onBadgeSelect(String(badgeId));
     };
 
     return (
@@ -129,14 +135,12 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
                                 >
                                     <Image className="w-4 h-4 text-orange-500" /> Upload Foto
                                 </button>
-                                {role !== 'volunteer' && (
-                                    <button
-                                        onClick={() => handleOptionClick('badge')}
-                                        className="w-full text-left px-4 py-3 text-sm font-medium text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
-                                    >
-                                        <Award className="w-4 h-4 text-purple-500" /> Pilih Badge
-                                    </button>
-                                )}
+                                <button
+                                    onClick={() => handleOptionClick('badge')}
+                                    className="w-full text-left px-4 py-3 text-sm font-medium text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
+                                >
+                                    <Award className="w-4 h-4 text-purple-500" /> Pilih Badge
+                                </button>
                             </div>
                         )}
                     </div>
@@ -221,11 +225,11 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
                                             onClick={() => !isLocked && applyBadgeCover(badge.id)}
                                             disabled={isLocked}
                                             className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all group text-left relative overflow-hidden ${isLocked
-                                                    ? 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 opacity-70 cursor-not-allowed'
-                                                    : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 hover:border-orange-500 dark:hover:border-orange-500 cursor-pointer'
+                                                ? 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 opacity-70 cursor-not-allowed'
+                                                : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 hover:border-orange-500 dark:hover:border-orange-500 cursor-pointer'
                                                 }`}
                                         >
-                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-sm z-10 ${badge.id === selectedBadgeId ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-stone-100 dark:bg-stone-800'}`}>
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-sm z-10 ${String(badge.id) === String(selectedBadgeId) ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-stone-100 dark:bg-stone-800'}`}>
                                                 {isLocked ? <Lock className="w-5 h-5 text-stone-400" /> : badge.icon}
                                             </div>
                                             <div className="flex-1 z-10">

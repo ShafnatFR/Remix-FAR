@@ -410,7 +410,8 @@ function registerUser(ss, userData) {
     points: 0, 
     joinDate: new Date().toLocaleDateString('id-ID'), 
     avatar: userData.avatar || '',
-    isNewUser: newUserStatus // Save as 1
+    isNewUser: newUserStatus, // Save as 1
+    selectedBadgeId: '' 
   };
   
   const row = headers.map(header => (newUser[header] === undefined || newUser[header] === null ? "" : newUser[header]));
@@ -856,7 +857,7 @@ function respondReport(ss, reportId, newStatus) {
 function initDatabase(ss) {
   if (!ss) ss = getSpreadsheet();
   const schema = {
-    'Users': ['id', 'name', 'email', 'role', 'status', 'points', 'joinDate', 'phone', 'password', 'avatar', 'isNewUser'],
+    'Users': ['id', 'name', 'email', 'role', 'status', 'points', 'joinDate', 'phone', 'password', 'avatar', 'isNewUser', 'selectedBadgeId'],
     'Inventory': ['id', 'providerId', 'name', 'description', 'quantity', 'initialQuantity', 'currentQuantity', 'minQuantity', 'maxQuantity', 'expiryTime', 'createdAt', 'distributionStart', 'distributionEnd', 'imageUrl', 'providerName', 'status', 'deliveryMethod', 'aiVerification', 'socialImpact'],
     'Claims': ['id', 'foodId', 'receiverId', 'providerId', 'volunteerId', 'foodName', 'providerName', 'date', 'status', 'rating', 'review', 'reviewMedia', 'isReported', 'reportReason', 'reportDescription', 'reportEvidence', 'imageUrl', 'uniqueCode', 'claimedQuantity', 'deliveryMethod', 'location', 'distributionHours', 'description', 'courierName', 'courierStatus', 'socialImpact', 'isScanned', 'reportStatus'],
     'Addresses': ['id', 'userId', 'label', 'fullAddress', 'receiverName', 'phone', 'isPrimary', 'role'],
@@ -910,7 +911,8 @@ function initDatabase(ss) {
               joinDate: new Date().toLocaleDateString('id-ID'),
               phone: '081234567890',
               avatar: 'https://ui-avatars.com/api/?name=Super+Admin&background=random',
-              isNewUser: 0 // Admin default 0
+              isNewUser: 0, // Admin default 0
+              selectedBadgeId: ''
           };
 
           const row = headers.map(h => {

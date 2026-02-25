@@ -16,6 +16,7 @@ export interface UserData {
   avatar?: string;
   password?: string;
   isNewUser?: boolean; // Field baru: true (1) = tampilkan tour, false (0) = sembunyikan
+  selectedBadgeId?: string;
 }
 
 export interface ImpactBreakdownItem {
