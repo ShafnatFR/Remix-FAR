@@ -23,7 +23,7 @@ export const RankDetailsModal: React.FC<RankDetailsModalProps> = ({ onClose, pro
                         <X className="w-5 h-5" />
                     </button>
                 </div>
-            
+
                 <div className="flex-1 overflow-y-auto p-0 scrollbar-hide">
                     <div className="p-6 border-b border-stone-100 dark:border-stone-800 bg-orange-50/50 dark:bg-orange-900/10">
                         <h4 className="font-black text-stone-900 dark:text-white text-sm mb-4 flex items-center gap-2 uppercase tracking-widest"><Target className="w-4 h-4 text-orange-500" /> Cara Mendapatkan Poin</h4>
@@ -46,24 +46,31 @@ export const RankDetailsModal: React.FC<RankDetailsModalProps> = ({ onClose, pro
                         <h4 className="font-black text-stone-900 dark:text-white text-sm flex items-center gap-2 uppercase tracking-widest"><Trophy className="w-4 h-4 text-amber-500" /> Tingkatan & Benefit</h4>
                         {providerSystem.tiers.map((rank) => {
                             const isCurrent = rank.id === currentRank.id;
+                            const isAchieved = currentPoints >= rank.minPoints && !isCurrent;
+                            const isLocked = currentPoints < rank.minPoints;
+
+                            let containerClass = "p-5 rounded-[2rem] border transition-all duration-500 ";
+                            if (isCurrent) {
+                                containerClass += "bg-orange-50 dark:bg-orange-900/20 border-orange-500 ring-1 ring-orange-500 shadow-lg scale-[1.02] z-10";
+                            } else if (isAchieved) {
+                                containerClass += "bg-green-50/50 dark:bg-green-900/10 border-green-200 dark:border-green-800/50";
+                            } else {
+                                containerClass += "bg-white dark:bg-stone-900 border-stone-100 dark:border-stone-800 opacity-50 grayscale-[0.5]";
+                            }
+
                             return (
-                                <div key={rank.id} className={`p-5 rounded-[2rem] border transition-all duration-500 ${isCurrent ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-500 ring-1 ring-orange-500 shadow-lg' : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-700 opacity-60 hover:opacity-100'}`}>
+                                <div key={rank.id} className={containerClass}>
                                     <div className="flex items-center gap-4 mb-3">
-                                        <div className="text-3xl filter drop-shadow-sm">{rank.icon}</div>
+                                        <div className={`text-3xl filter drop-shadow-sm ${isLocked ? 'grayscale opacity-50' : ''}`}>{rank.icon}</div>
                                         <div className="flex-1">
                                             <div className="flex justify-between items-center">
-                                                <h4 className="font-black text-stone-900 dark:text-white text-base">{rank.name}</h4>
-                                                {isCurrent && <span className="bg-orange-500 text-white text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-tighter">Aktif</span>}
+                                                <h4 className={`font-black uppercase tracking-tight text-sm ${isLocked ? 'text-stone-400 dark:text-stone-600' : 'text-stone-900 dark:text-white'}`}>{rank.name}</h4>
+                                                {isCurrent && <span className="bg-orange-500 text-white text-[9px] px-2.5 py-1 rounded-full font-black uppercase tracking-tighter animate-pulse">Aktif</span>}
+                                                {isAchieved && <span className="bg-green-600/10 text-green-600 border border-green-200 dark:border-green-800/50 text-[9px] px-2.5 py-1 rounded-full font-black uppercase tracking-tighter">Tercapai</span>}
                                             </div>
-                                            <p className="text-xs text-stone-500 font-bold">Minimal {rank.minPoints.toLocaleString()} Poin</p>
-                                        </div>
-                                    </div>
-                                    <div className="pl-12">
-                                        <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2">Keuntungan:</p>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {rank.benefits.map((b, i) => (
-                                                <span key={i} className="text-[10px] font-bold bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 px-2.5 py-1 rounded-lg border border-stone-200 dark:border-stone-700">{b}</span>
-                                            ))}
+                                            <p className={`text-[10px] font-bold ${isLocked ? 'text-stone-400' : 'text-stone-500'}`}>
+                                                {isLocked ? `Butuh ${rank.minPoints.toLocaleString()} Poin` : `Minimal ${rank.minPoints.toLocaleString()} Poin`}
+                                            </p>
                                         </div>
                                     </div>
                                 </div>
@@ -71,9 +78,9 @@ export const RankDetailsModal: React.FC<RankDetailsModalProps> = ({ onClose, pro
                         })}
                     </div>
                 </div>
-            
+
                 <div className="p-6 bg-stone-50 dark:bg-stone-950 border-t border-stone-100 dark:border-stone-800">
-                    <button 
+                    <button
                         onClick={onClose}
                         className="w-full py-4 bg-stone-900 dark:bg-stone-800 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl hover:bg-black transition-colors shadow-lg"
                     >

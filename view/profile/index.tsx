@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, MapPin, Shield, HelpCircle, LogOut, Moon, Sun, Store, Heart, ChevronRight, ArrowLeft, RefreshCw } from 'lucide-react';
 import { Button } from '../components/Button';
-import { UserRole, UserData, SavedItem, ClaimHistoryItem, FoodItem, FAQItem, Address } from '../../types';
+import { UserRole, UserData, SavedItem, ClaimHistoryItem, FoodItem, FAQItem, Address, Badge } from '../../types';
 import { ProfileHeader } from './components/ProfileHeader';
 import { EditProfile } from './components/EditProfile';
 import { AddressList } from './components/AddressList';
@@ -10,39 +10,40 @@ import { SecuritySettings } from './components/SecuritySettings';
 import { FaqSection } from './components/FaqSection';
 import { SavedItems } from './components/SavedItems';
 import { ClaimHistory, ReportModal, ReviewModal } from './components/ClaimHistory';
-import { ClaimHistoryDetail } from './components/ClaimHistoryDetail'; 
+import { ClaimHistoryDetail } from './components/ClaimHistoryDetail';
 import { HistoryList } from '../volunteer/components/HistoryList';
 import { FoodDetail } from '../receiver/components/FoodDetail';
 import { db } from '../../services/db';
 
 interface ProfileIndexProps {
-  role: UserRole;
-  currentUser: UserData | null;
-  onLogout: () => void;
-  isDarkMode: boolean;
-  toggleTheme: () => void;
-  onNavigate: (view: string) => void;
-  initialView?: 'main' | 'address' | 'history' | 'saved' | 'edit' | 'security' | 'faq';
-  savedItems: SavedItem[];
-  setSavedItems: React.Dispatch<React.SetStateAction<SavedItem[]>>;
-  claimHistory: ClaimHistoryItem[];
-  setClaimHistory: React.Dispatch<React.SetStateAction<ClaimHistoryItem[]>>;
-  availableFoodForDetail: FoodItem[];
-  onClaim: (item: FoodItem, quantity: string) => void;
-  globalFAQs: FAQItem[];
-  stats: {
-      label1: string; value1: number | string;
-      label2: string; value2: number | string;
-      label3: string; value3: number;
-  };
-  onSubmitReview?: (claimId: string, rating: number, comment: string, media: string[]) => void;
-  onSubmitReport?: (claimId: string, reason: string, description: string, evidence: string[]) => void;
-  onRefresh?: () => void; 
-  allAddresses?: Address[];
+    role: UserRole;
+    currentUser: UserData | null;
+    onLogout: () => void;
+    isDarkMode: boolean;
+    toggleTheme: () => void;
+    onNavigate: (view: string) => void;
+    initialView?: 'main' | 'address' | 'history' | 'saved' | 'edit' | 'security' | 'faq';
+    savedItems: SavedItem[];
+    setSavedItems: React.Dispatch<React.SetStateAction<SavedItem[]>>;
+    claimHistory: ClaimHistoryItem[];
+    setClaimHistory: React.Dispatch<React.SetStateAction<ClaimHistoryItem[]>>;
+    availableFoodForDetail: FoodItem[];
+    onClaim: (item: FoodItem, quantity: string) => void;
+    globalFAQs: FAQItem[];
+    stats: {
+        label1: string; value1: number | string;
+        label2: string; value2: number | string;
+        label3: string; value3: number;
+    };
+    onSubmitReview?: (claimId: string, rating: number, comment: string, media: string[]) => void;
+    onSubmitReport?: (claimId: string, reason: string, description: string, evidence: string[]) => void;
+    onRefresh?: () => void;
+    allAddresses?: Address[];
+    globalBadges?: Badge[];
 }
 
 const MenuButton = ({ icon: Icon, label, onClick, last }: any) => (
-    <button 
+    <button
         onClick={onClick}
         className={`w-full flex items-center justify-between p-4 hover:bg-stone-50 dark:hover:bg-stone-800 transition-colors ${!last ? 'border-b border-stone-100 dark:border-stone-800' : ''}`}
     >
@@ -56,11 +57,11 @@ const MenuButton = ({ icon: Icon, label, onClick, last }: any) => (
     </button>
 );
 
-export const ProfileIndex: React.FC<ProfileIndexProps> = ({ 
-    role, 
-    currentUser, 
-    onLogout, 
-    isDarkMode, 
+export const ProfileIndex: React.FC<ProfileIndexProps> = ({
+    role,
+    currentUser,
+    onLogout,
+    isDarkMode,
     toggleTheme,
     onNavigate,
     initialView = 'main',
@@ -75,16 +76,18 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
     onSubmitReview,
     onSubmitReport,
     onRefresh,
-    allAddresses = []
+    allAddresses = [],
+    globalBadges = []
 }) => {
     const [currentView, setCurrentView] = useState<string>(initialView);
     const [userData, setUserData] = useState<UserData | null>(currentUser);
     const [addresses, setAddresses] = useState<Address[]>([]);
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
-    
+    const [isAddressLoading, setIsAddressLoading] = useState(false);
+
     // For Food Detail in Saved Items
     const [selectedFoodItem, setSelectedFoodItem] = useState<FoodItem | null>(null);
-    
+
     // For Claim History Detail & Actions
     const [selectedHistoryItem, setSelectedHistoryItem] = useState<ClaimHistoryItem | null>(null);
     const [reportModalOpen, setReportModalOpen] = useState(false);
@@ -113,11 +116,15 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
     useEffect(() => {
         const fetchAddresses = async () => {
             if (currentUser?.id) {
+                setIsAddressLoading(true);
                 try {
                     const data = await db.getAddresses(currentUser.id);
                     setAddresses(data);
                 } catch (e) {
                     console.error(e);
+                } finally {
+                    // Small delay for better UX and animation smoothness
+                    setTimeout(() => setIsAddressLoading(false), 800);
                 }
             }
         };
@@ -159,10 +166,10 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
             try {
                 await db.updateClaimStatus(selectedHistoryItem.id, 'completed');
                 setClaimHistory(prev => prev.map(c => c.id === selectedHistoryItem.id ? { ...c, status: 'completed' } : c));
-                
+
                 // Update selected item status locally to reflect change immediately without closing modal if desired
                 setSelectedHistoryItem(prev => prev ? { ...prev, status: 'completed' } : null);
-                
+
                 alert("Pesanan berhasil diselesaikan!");
             } catch (e) {
                 console.error("Gagal update status", e);
@@ -175,15 +182,15 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
         if (selectedHistoryItem && onSubmitReport) {
             onSubmitReport(selectedHistoryItem.id, reason, description, evidence);
             setReportModalOpen(false);
-            
+
             // Update local state to show 'Reported' status immediately
             // Note: reportEvidence in ClaimHistoryItem is currently string | undefined in types.ts, 
             // but we are passing array for upload. The type definition might need update or casting.
             // For now we store the first image or stringify it to keep UI consistent if it expects string
             const evidenceStr = evidence.length > 0 ? JSON.stringify(evidence) : "";
-            
-            setSelectedHistoryItem(prev => prev ? { 
-                ...prev, 
+
+            setSelectedHistoryItem(prev => prev ? {
+                ...prev,
                 isReported: true,
                 reportReason: reason,
                 reportDescription: description,
@@ -197,7 +204,7 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
         if (selectedHistoryItem && onSubmitReview) {
             onSubmitReview(selectedHistoryItem.id, rating, review, media);
             setReviewModalOpen(false);
-            
+
             // Update local state to show rating immediately
             setSelectedHistoryItem(prev => prev ? { ...prev, rating, review } : null);
             alert("Terima kasih atas ulasan Anda!");
@@ -228,12 +235,13 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
                     </button>
                     <h2 className="text-xl font-bold text-stone-900 dark:text-white">Alamat Tersimpan</h2>
                 </div>
-                <AddressList 
-                    addresses={addresses} 
-                    onAddAddress={handleAddAddress} 
-                    onUpdateAddress={handleUpdateAddress} 
-                    onDeleteAddress={handleDeleteAddress} 
+                <AddressList
+                    addresses={addresses}
+                    onAddAddress={handleAddAddress}
+                    onUpdateAddress={handleUpdateAddress}
+                    onDeleteAddress={handleDeleteAddress}
                     role={role}
+                    isLoading={isAddressLoading}
                 />
             </div>
         );
@@ -270,10 +278,10 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
     if (currentView === 'saved') {
         if (selectedFoodItem) {
             return (
-                <FoodDetail 
-                    item={selectedFoodItem} 
-                    onBack={() => setSelectedFoodItem(null)} 
-                    onClaim={(qty) => { onClaim(selectedFoodItem, qty); setSelectedFoodItem(null); }} 
+                <FoodDetail
+                    item={selectedFoodItem}
+                    onBack={() => setSelectedFoodItem(null)}
+                    onClaim={(qty) => { onClaim(selectedFoodItem, qty); setSelectedFoodItem(null); }}
                     isSaved={true}
                     onToggleSave={() => handleToggleSave(selectedFoodItem)}
                     claimHistory={claimHistory}
@@ -288,8 +296,8 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
                     </button>
                     <h2 className="text-xl font-bold text-stone-900 dark:text-white">Makanan Tersimpan</h2>
                 </div>
-                <SavedItems 
-                    items={savedItems} 
+                <SavedItems
+                    items={savedItems}
                     onDelete={(ids) => setSavedItems(prev => prev.filter(i => !ids.has(i.id)))}
                     onDetail={(saved) => {
                         const food = availableFoodForDetail.find(f => f.id === saved.id);
@@ -306,7 +314,7 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
         if (selectedHistoryItem && role !== 'volunteer') {
             return (
                 <>
-                    <ClaimHistoryDetail 
+                    <ClaimHistoryDetail
                         item={selectedHistoryItem}
                         onBack={() => setSelectedHistoryItem(null)}
                         onComplete={handleCompleteClaim}
@@ -314,15 +322,15 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
                         onReview={() => setReviewModalOpen(true)}
                     />
                     {reportModalOpen && (
-                        <ReportModal 
-                            item={selectedHistoryItem} 
+                        <ReportModal
+                            item={selectedHistoryItem}
                             onClose={() => setReportModalOpen(false)}
                             onSubmit={handleReportSubmit}
                         />
                     )}
                     {reviewModalOpen && (
-                        <ReviewModal 
-                            item={selectedHistoryItem} 
+                        <ReviewModal
+                            item={selectedHistoryItem}
                             onClose={() => setReviewModalOpen(false)}
                             onSubmit={handleReviewSubmit}
                         />
@@ -353,40 +361,40 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
                         </button>
                     )}
                 </div>
-                
+
                 {role === 'volunteer' ? (
                     <div className="px-4 md:px-8 pt-4">
-                        <HistoryList 
+                        <HistoryList
                             history={claimHistory
                                 .filter(c => c.courierName === currentUser?.name && c.status === 'completed')
                                 .map(c => {
                                     const providerAddr = allAddresses.find(a => String(a.userId) === String(c.providerId));
                                     const receiverAddr = allAddresses.find(a => String(a.userId) === String(c.receiverId));
 
-                                    return { 
+                                    return {
                                         // FIX: ensure id is treated as string before regex
-                                        id: parseInt(String(c.id).replace(/\D/g, '') || String(Date.now())), 
+                                        id: parseInt(String(c.id).replace(/\D/g, '') || String(Date.now())),
                                         originalId: c.id,
-                                        date: c.date, 
-                                        from: providerAddr ? providerAddr.label : c.providerName, 
-                                        to: receiverAddr ? receiverAddr.label : 'Penerima', 
-                                        items: c.foodName, 
+                                        date: c.date,
+                                        from: providerAddr ? providerAddr.label : c.providerName,
+                                        to: receiverAddr ? receiverAddr.label : 'Penerima',
+                                        items: c.foodName,
                                         points: 150,
-                                        distance: 2.5 
+                                        distance: 2.5
                                     };
                                 })
                             }
-                            onFindMissions={() => onNavigate('dashboard')} 
+                            onFindMissions={() => onNavigate('dashboard')}
                         />
                     </div>
                 ) : (
-                    <ClaimHistory 
-                        history={claimHistory} 
-                        onSelectItem={setSelectedHistoryItem} 
+                    <ClaimHistory
+                        history={claimHistory}
+                        onSelectItem={setSelectedHistoryItem}
                         onSubmitReview={onSubmitReview}
                         onSubmitReport={onSubmitReport}
-                        isLoading={isHistoryLoading} 
-                        onRefresh={onRefresh} 
+                        isLoading={isHistoryLoading}
+                        onRefresh={onRefresh}
                     />
                 )}
             </div>
@@ -396,13 +404,14 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
     return (
         <div className="pb-32 animate-in fade-in">
             {userData && (
-                <ProfileHeader 
-                    userData={userData} 
-                    role={role} 
-                    bannerImage={null} 
-                    onEditBanner={() => {}} 
-                    onEditAvatar={() => {}} 
+                <ProfileHeader
+                    userData={userData}
+                    role={role}
+                    bannerImage={null}
+                    onEditBanner={() => { }}
+                    onEditAvatar={() => { }}
                     stats={stats}
+                    badges={globalBadges}
                 />
             )}
 
@@ -415,7 +424,7 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
                         </div>
                     </>
                 )}
-                
+
                 {role === 'provider' && (
                     <>
                         <h3 className="text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2 ml-2">Aktivitas Donatur</h3>
@@ -441,7 +450,7 @@ export const ProfileIndex: React.FC<ProfileIndexProps> = ({
                     </button>
                     <MenuButton icon={HelpCircle} label="Bantuan & FAQ" onClick={() => setCurrentView('faq')} last />
                 </div>
-                
+
                 <div className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl overflow-hidden p-2 shadow-sm mt-6">
                     <Button variant="danger" onClick={onLogout} className="flex items-center justify-center gap-2"><LogOut className="w-4 h-4" /> Keluar Akun</Button>
                 </div>

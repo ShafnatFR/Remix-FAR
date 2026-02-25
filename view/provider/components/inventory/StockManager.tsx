@@ -13,6 +13,7 @@ import { InventoryNavigation } from '../InventoryNavigation';
 import { Button } from '../../../components/Button';
 import { db } from '../../../../services/db';
 import { checkAndExpireItems } from '../../../../utils/expiryChecker';
+import { SkeletonCard } from '../../../components/Skeleton';
 
 interface StockManagerProps {
     foodItems: FoodItem[];
@@ -25,12 +26,12 @@ interface StockManagerProps {
     onNavigate: (view: string) => void;
 }
 
-export const StockManager: React.FC<StockManagerProps> = ({ 
-    foodItems, 
-    setFoodItems, 
-    currentView, 
-    setCurrentView, 
-    currentUser, 
+export const StockManager: React.FC<StockManagerProps> = ({
+    foodItems,
+    setFoodItems,
+    currentView,
+    setCurrentView,
+    currentUser,
     isLoading: isParentLoading,
     onRefresh: onParentRefresh,
     onNavigate
@@ -79,7 +80,7 @@ export const StockManager: React.FC<StockManagerProps> = ({
         setIsFetching(true);
         // Call parent refresh (Global Data)
         if (onParentRefresh) {
-            await onParentRefresh(); 
+            await onParentRefresh();
         }
         // Call local refresh
         await fetchInventoryAndAddress();
@@ -105,7 +106,7 @@ export const StockManager: React.FC<StockManagerProps> = ({
 
     const handleUpdateItem = (updatedItem: FoodItem) => {
         setFoodItems(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
-        setSelectedProduct(updatedItem); 
+        setSelectedProduct(updatedItem);
     };
 
     const handleDeleteItem = async (id: string) => {
@@ -125,7 +126,7 @@ export const StockManager: React.FC<StockManagerProps> = ({
     };
 
     const handleToggleItemSelection = (id: string) => {
-        setSelectedItems(prev => 
+        setSelectedItems(prev =>
             prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
         );
     };
@@ -162,7 +163,7 @@ export const StockManager: React.FC<StockManagerProps> = ({
     const myItems = foodItems;
 
     // 2. Filter by Search Query
-    const filteredItems = myItems.filter(item => 
+    const filteredItems = myItems.filter(item =>
         item.name.toLowerCase().includes(searchQuery.toLowerCase())
     ).sort((a, b) => {
         const aExpired = isFoodExpired(a.distributionEnd);
@@ -170,7 +171,7 @@ export const StockManager: React.FC<StockManagerProps> = ({
 
         if (aExpired && !bExpired) return 1; // a expired, b not expired -> a goes after b
         if (!aExpired && bExpired) return -1; // a not expired, b expired -> a goes before b
-        
+
         // If both are expired or both are not expired, maintain original order or sort by date
         // Sort by distributionEnd ascending (earliest non-expired first, earliest expired first)
         const dateA = a.distributionEnd ? new Date(a.distributionEnd).getTime() : 0;
@@ -186,8 +187,8 @@ export const StockManager: React.FC<StockManagerProps> = ({
     if (isAddingNew) {
         return (
             <div className="p-4 md:p-8 max-w-5xl mx-auto pb-32">
-                <QualityCheckInventory 
-                    onBack={() => setIsAddingNew(false)} 
+                <QualityCheckInventory
+                    onBack={() => setIsAddingNew(false)}
                     onSuccess={handleAddNewItem}
                     currentUser={currentUser} // PASS USER DATA
                 />
@@ -197,9 +198,9 @@ export const StockManager: React.FC<StockManagerProps> = ({
 
     if (selectedProduct) {
         return (
-            <ProductDetailModal 
-                product={selectedProduct} 
-                onClose={() => setSelectedProduct(null)} 
+            <ProductDetailModal
+                product={selectedProduct}
+                onClose={() => setSelectedProduct(null)}
                 onUpdate={handleUpdateItem}
                 onDelete={handleDeleteItem}
             />
@@ -209,16 +210,16 @@ export const StockManager: React.FC<StockManagerProps> = ({
     return (
         <div className="p-6 md:p-8 max-w-5xl mx-auto pb-32 animate-in fade-in slide-in-from-left-4">
             {/* 1. Header (Judul + Search + Refresh) */}
-            <StockHeader 
-                searchQuery={searchQuery} 
-                setSearchQuery={setSearchQuery} 
+            <StockHeader
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
                 onRefresh={handleRefresh}
                 isLoading={showLoading}
             />
 
             {/* 2. Navigation Tab (Navbar Stok, Pesanan, Riwayat) */}
             <InventoryNavigation currentView={currentView} setCurrentView={setCurrentView} />
-            
+
             {/* 3. Action & Toggle */}
             <div className="space-y-6">
                 <div className="flex items-center gap-3">
@@ -244,14 +245,13 @@ export const StockManager: React.FC<StockManagerProps> = ({
                         </div>
                     )}
 
-                    <Button 
+                    <Button
                         onClick={() => setIsAddingNew(true)}
                         disabled={hasAddress === false || showLoading}
-                        className={`w-full h-14 font-black uppercase tracking-widest rounded-2xl border-0 transition-all ${
-                            (hasAddress === false || showLoading)
-                            ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 cursor-not-allowed shadow-none' 
-                            : 'bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white shadow-xl shadow-orange-500/30 active:scale-[0.98]'
-                        }`}
+                        className={`w-full h-14 font-black uppercase tracking-widest rounded-2xl border-0 transition-all ${(hasAddress === false || showLoading)
+                                ? 'bg-stone-200 dark:bg-stone-800 text-stone-400 cursor-not-allowed shadow-none'
+                                : 'bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-400 text-white shadow-xl shadow-orange-500/30 active:scale-[0.98]'
+                            }`}
                     >
                         {showLoading ? (
                             <span className="flex items-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /> MEMERIKSA DATA...</span>
@@ -301,14 +301,14 @@ export const StockManager: React.FC<StockManagerProps> = ({
                 </div>
 
                 <div className="flex bg-stone-100 dark:bg-stone-900 p-1.5 rounded-2xl w-full border border-stone-200 dark:border-stone-800">
-                    <button 
+                    <button
                         onClick={() => setLayoutMode('grid')}
                         className={`flex-1 h-10 rounded-xl flex items-center justify-center gap-2 transition-all text-xs font-black uppercase tracking-widest ${layoutMode === 'grid' ? 'bg-white dark:bg-stone-800 text-orange-600 shadow-sm ring-1 ring-black/5 dark:ring-white/5' : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'}`}
                     >
                         <LayoutGrid className="w-4 h-4" />
                         <span className="hidden xs:inline">Grid</span>
                     </button>
-                    <button 
+                    <button
                         onClick={() => setLayoutMode('list')}
                         className={`flex-1 h-10 rounded-xl flex items-center justify-center gap-2 transition-all text-xs font-black uppercase tracking-widest ${layoutMode === 'list' ? 'bg-white dark:bg-stone-800 text-orange-600 shadow-sm ring-1 ring-black/5 dark:ring-white/5' : 'text-stone-400 hover:text-stone-600 dark:hover:text-stone-300'}`}
                     >
@@ -317,22 +317,19 @@ export const StockManager: React.FC<StockManagerProps> = ({
                     </button>
                 </div>
             </div>
-            
-            {/* CONTENT AREA: Loading OR Data */}
+
             {showLoading ? (
-                <div className="flex flex-col items-center justify-center py-32 animate-in fade-in">
-                    <div className="relative">
-                        <div className="w-16 h-16 border-4 border-orange-200 dark:border-stone-800 rounded-full"></div>
-                        <div className="absolute top-0 left-0 w-16 h-16 border-4 border-orange-500 rounded-full animate-spin border-t-transparent"></div>
+                <div className="mt-6">
+                    <div className={`grid gap-3 md:gap-5 ${layoutMode === 'grid' ? 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                        {[...Array(6)].map((_, i) => (
+                            <SkeletonCard key={i} />
+                        ))}
                     </div>
-                    <p className="text-orange-600 dark:text-orange-400 font-black text-xs uppercase tracking-[0.2em] mt-6 animate-pulse">
-                        Memuat Data Stok...
-                    </p>
                 </div>
             ) : currentItems.length === 0 ? (
-                <EmptyState 
-                    icon={Package} 
-                    title={searchQuery ? "Tidak Ditemukan" : "Inventory Kosong"} 
+                <EmptyState
+                    icon={Package}
+                    title={searchQuery ? "Tidak Ditemukan" : "Inventory Kosong"}
                     description={searchQuery ? `Tidak ada produk dengan kata kunci "${searchQuery}" di stok Anda.` : "Anda belum memiliki stok aktif. Mulai donasi sekarang!"}
                     // Jika address belum ada, hilangkan action button di empty state agar konsisten
                     actionLabel={searchQuery ? "Reset Pencarian" : (hasAddress !== false ? "Tambah Donasi" : undefined)}
@@ -343,11 +340,11 @@ export const StockManager: React.FC<StockManagerProps> = ({
                 <div className="mt-6">
                     <div className={`grid gap-3 md:gap-5 ${layoutMode === 'grid' ? 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
                         {currentItems.map(item => (
-                            <StockItemCard 
-                                key={item.id} 
-                                item={item} 
-                                layoutMode={layoutMode} 
-                                onClick={() => setSelectedProduct(item)} 
+                            <StockItemCard
+                                key={item.id}
+                                item={item}
+                                layoutMode={layoutMode}
+                                onClick={() => setSelectedProduct(item)}
                                 onDelete={handleDeleteItem}
                                 isMultiSelectMode={isMultiSelectMode}
                                 isSelected={selectedItems.includes(item.id)}
@@ -357,13 +354,13 @@ export const StockManager: React.FC<StockManagerProps> = ({
                     </div>
 
                     {filteredItems.length > itemsPerPage && (
-                        <StockPagination 
-                            currentPage={currentPage} 
-                            totalPages={totalPages} 
-                            setCurrentPage={setCurrentPage} 
-                            indexOfFirstItem={indexOfFirstItem} 
-                            indexOfLastItem={indexOfLastItem} 
-                            totalItems={filteredItems.length} 
+                        <StockPagination
+                            currentPage={currentPage}
+                            totalPages={totalPages}
+                            setCurrentPage={setCurrentPage}
+                            indexOfFirstItem={indexOfFirstItem}
+                            indexOfLastItem={indexOfLastItem}
+                            totalItems={filteredItems.length}
                         />
                     )}
                 </div>

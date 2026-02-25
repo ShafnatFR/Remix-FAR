@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { QrCode, MessageSquare, AlertTriangle, X, Star, Send, CheckCircle, Loader2, ChevronLeft, ChevronRight, MapPin, Package, Truck, Navigation, CalendarDays, ShoppingBag, Camera, Image as ImageIcon, Clock, RefreshCw } from 'lucide-react';
+import { QrCode, MessageSquare, AlertTriangle, X, Star, CheckCircle, Clock, RefreshCw, Image as ImageIcon, Camera } from 'lucide-react';
 import { Button } from '../../components/Button';
+import { Skeleton } from '../../components/Skeleton';
 import { ClaimHistoryItem } from '../../../types';
 import { db } from '../../../services/db';
 import { getDateTimeParts } from '../../../utils/transformers';
@@ -36,9 +37,8 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onSubmi
             return;
         }
         setIsSubmitting(true);
-        
+
         try {
-            // Upload images to Drive (Review Folder)
             const uploadedUrls: string[] = [];
             for (const base64 of media) {
                 if (base64.startsWith('data:image')) {
@@ -48,8 +48,6 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onSubmi
                     uploadedUrls.push(base64);
                 }
             }
-
-            // Submit logic handled by parent
             onSubmit(rating, review, uploadedUrls);
         } catch (error) {
             console.error("Failed to upload review media:", error);
@@ -101,13 +99,13 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({ item, onClose, onSubmi
                     rows={4}
                     className="w-full p-3 border rounded-xl dark:bg-stone-800 dark:text-white mb-4 focus:outline-none focus:border-orange-500"
                 />
-                
+
                 <div className="mb-6">
                     <div className="flex gap-2 overflow-x-auto pb-2">
                         {media.map((img, i) => (
                             <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 group">
                                 <img src={img} alt="review" className="w-full h-full object-cover" />
-                                <button 
+                                <button
                                     onClick={() => setMedia(media.filter((_, idx) => idx !== i))}
                                     className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
@@ -156,11 +154,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onSubmi
     const handleSubmit = async () => {
         if (!description.trim()) return;
         setIsSubmitting(true);
-        
+
         try {
             const uploadedUrls: string[] = [];
-            
-            // Upload Evidence to Drive (Report Folder)
             for (const img of evidence) {
                 if (img.startsWith('data:image')) {
                     const url = await db.uploadImage(img, `report_${item.id}_${Date.now()}.jpg`, 'reports');
@@ -169,7 +165,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onSubmi
                     uploadedUrls.push(img);
                 }
             }
-            
             onSubmit(reason, description, uploadedUrls);
         } catch (error) {
             console.error("Failed to upload evidence:", error);
@@ -190,8 +185,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onSubmi
                     <AlertTriangle className="w-5 h-5 text-red-500" /> Laporkan Masalah
                 </h3>
                 <div className="space-y-4 mb-6">
-                    <select 
-                        value={reason} 
+                    <select
+                        value={reason}
                         onChange={(e) => setReason(e.target.value)}
                         className="w-full p-3 border rounded-xl dark:bg-stone-800 dark:text-white focus:outline-none focus:border-red-500"
                     >
@@ -207,14 +202,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({ item, onClose, onSubmi
                         rows={4}
                         className="w-full p-3 border rounded-xl dark:bg-stone-800 dark:text-white focus:outline-none focus:border-red-500"
                     />
-                    
+
                     <div>
                         <label className="text-xs font-bold text-stone-500 mb-2 block uppercase">Bukti Foto (Opsional)</label>
                         <div className="flex gap-2 overflow-x-auto pb-2">
                             {evidence.map((img, i) => (
                                 <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0 group border border-stone-200">
                                     <img src={img} alt="evidence" className="w-full h-full object-cover" />
-                                    <button 
+                                    <button
                                         onClick={() => setEvidence(evidence.filter((_, idx) => idx !== i))}
                                         className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                     >
@@ -248,8 +243,33 @@ interface ClaimHistoryProps {
     onRefresh?: () => void | Promise<void>;
 }
 
-export const ClaimHistory: React.FC<ClaimHistoryProps> = ({ 
-    history, 
+const SkeletonClaimHistoryCard = () => (
+    <div className="bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-100 dark:border-stone-800 flex flex-col gap-4">
+        <div className="flex gap-4">
+            <Skeleton className="w-16 h-16 rounded-xl shrink-0" />
+            <div className="flex-1 space-y-2">
+                <div className="flex justify-between items-start">
+                    <Skeleton className="h-5 w-1/2" />
+                    <Skeleton className="h-4 w-12 rounded-full" />
+                </div>
+                <Skeleton className="h-3 w-1/3" />
+            </div>
+        </div>
+        <div className="space-y-3 pt-2">
+            <div className="flex flex-col gap-1">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-16" />
+            </div>
+            <div className="flex gap-2 pt-2 border-t border-stone-100 dark:border-stone-800">
+                <Skeleton className="h-9 flex-1 rounded-xl" />
+                <Skeleton className="h-9 flex-1 rounded-xl" />
+            </div>
+        </div>
+    </div>
+);
+
+export const ClaimHistory: React.FC<ClaimHistoryProps> = ({
+    history,
     onSelectItem,
     onSubmitReview,
     onSubmitReport,
@@ -262,7 +282,7 @@ export const ClaimHistory: React.FC<ClaimHistoryProps> = ({
     const [reportItem, setReportItem] = useState<ClaimHistoryItem | null>(null);
     const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
-    
+
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
@@ -278,7 +298,6 @@ export const ClaimHistory: React.FC<ClaimHistoryProps> = ({
     };
 
     const showLoading = isLoading || isRefreshing;
-
     const filteredHistory = history.filter(item => filter === 'all' || item.status === filter);
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -296,13 +315,13 @@ export const ClaimHistory: React.FC<ClaimHistoryProps> = ({
     const handleReportSubmit = (reason: string, description: string, evidence: string[]) => {
         if (reportItem && onSubmitReport) {
             onSubmitReport(reportItem.id, reason, description, evidence);
-            alert("Laporan Anda telah dikirim dan akan segera ditinjau.");
+            alert("Laporan Anda telah dikirim.");
             setReportItem(null);
         }
     };
 
     const handleOpenReport = (e: React.MouseEvent, item: ClaimHistoryItem) => {
-        e.stopPropagation(); 
+        e.stopPropagation();
         if (onOpenReport) {
             onOpenReport(item);
         } else {
@@ -315,111 +334,127 @@ export const ClaimHistory: React.FC<ClaimHistoryProps> = ({
             <div className="flex justify-between items-center mb-6">
                 <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide flex-1">
                     {['all', 'active', 'completed', 'cancelled'].map(tab => (
-                        <button key={tab} onClick={() => { setFilter(tab as any); setCurrentPage(1); }} className={`px-4 py-2 rounded-full text-sm font-medium transition-colors capitalize whitespace-nowrap ${filter === tab ? 'bg-orange-500 text-white' : 'bg-white dark:bg-stone-800 text-stone-600 border'}`}>
+                        <button
+                            key={tab}
+                            onClick={() => { setFilter(tab as any); setCurrentPage(1); }}
+                            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors capitalize whitespace-nowrap ${filter === tab ? 'bg-orange-500 text-white' : 'bg-white dark:bg-stone-800 text-stone-600 border border-stone-100 dark:border-stone-700'}`}
+                        >
                             {tab === 'all' ? 'Semua' : tab === 'active' ? 'Aktif' : tab === 'completed' ? 'Selesai' : 'Batal'}
                         </button>
                     ))}
                 </div>
             </div>
 
-            <div className="space-y-4">
+            <div className={showLoading || currentItems.length === 0 ? "space-y-4" : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"}>
                 {showLoading ? (
-                    <div className="flex flex-col items-center justify-center py-24 animate-in fade-in">
-                        <div className="relative">
-                            <div className="w-16 h-16 border-4 border-stone-200 dark:border-stone-800 rounded-full"></div>
-                            <div className="absolute top-0 left-0 w-16 h-16 border-4 border-stone-500 rounded-full animate-spin border-t-transparent"></div>
-                        </div>
-                        <p className="text-stone-500 dark:text-stone-400 font-black text-xs uppercase tracking-[0.2em] mt-6 animate-pulse">
-                            Memuat Riwayat...
-                        </p>
+                    <div className="contents animate-in fade-in duration-500">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <SkeletonClaimHistoryCard key={i} />
+                        ))}
                     </div>
                 ) : currentItems.length === 0 ? (
-                    <div className="text-center py-12 text-stone-500">Tidak ada riwayat klaim.</div>
+                    <div className="col-span-full text-center py-12 text-stone-500">Tidak ada riwayat klaim.</div>
                 ) : (
                     currentItems.map(item => {
                         const dateParts = getDateTimeParts(item.date);
                         return (
-                        <div 
-                            key={item.id} 
-                            onClick={() => onSelectItem(item)}
-                            className="bg-white dark:bg-stone-900 p-4 rounded-xl border flex flex-col md:flex-row gap-4 cursor-pointer group hover:border-orange-500/50 hover:shadow-md transition-all active:scale-[0.99]"
-                        >
-                            <div className="flex gap-4 flex-1">
-                                <img src={optimizeUnsplashUrl(item.imageUrl, 200)} alt={item.foodName} className="w-20 h-20 rounded-lg object-cover" />
-                                <div className="flex-1">
-                                    <div className="flex justify-between">
-                                        <h4 className="font-bold text-stone-900 dark:text-white group-hover:text-orange-600 transition-colors">{item.foodName}</h4>
-                                        {item.status === 'completed' ? (
-                                            <span className="text-[10px] px-2 py-1 rounded-full font-bold uppercase bg-green-100 text-green-600 flex items-center gap-1">
-                                                <CheckCircle className="w-3 h-3" /> Selesai
-                                            </span>
-                                        ) : item.status === 'active' ? (
-                                            <span className="text-[10px] px-2 py-1 rounded-full font-bold uppercase bg-blue-100 text-blue-600 flex items-center gap-1">
-                                                <Clock className="w-3 h-3" /> Aktif
-                                            </span>
-                                        ) : (
-                                            <span className="text-[10px] px-2 py-1 rounded-full font-bold uppercase bg-red-100 text-red-600 flex items-center gap-1">
-                                                <X className="w-3 h-3" /> Batal
-                                            </span>
-                                        )}
+                            <div
+                                key={item.id}
+                                onClick={() => onSelectItem(item)}
+                                className="bg-white dark:bg-stone-900 p-4 rounded-2xl border border-stone-200 dark:border-stone-800 flex flex-col gap-4 cursor-pointer group hover:border-orange-500/50 hover:shadow-md transition-all active:scale-[0.99] relative overflow-hidden"
+                            >
+                                <div className="flex gap-4">
+                                    <img src={optimizeUnsplashUrl(item.imageUrl, 200)} alt={item.foodName} className="w-16 h-16 rounded-xl object-cover shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex justify-between items-start gap-2 mb-1">
+                                            <h4 className="font-bold text-sm text-stone-900 dark:text-white group-hover:text-orange-600 transition-colors line-clamp-1">{item.foodName}</h4>
+                                            <div className="shrink-0 scale-75 origin-top-right">
+                                                {item.status === 'completed' ? (
+                                                    <span className="text-[10px] px-2 py-1 rounded-full font-bold uppercase bg-green-100 text-green-600 flex items-center gap-1">
+                                                        <CheckCircle className="w-3 h-3" /> Selesai
+                                                    </span>
+                                                ) : item.status === 'active' ? (
+                                                    <span className="text-[10px] px-2 py-1 rounded-full font-bold uppercase bg-blue-100 text-blue-600 flex items-center gap-1">
+                                                        <Clock className="w-3 h-3" /> Aktif
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-[10px] px-2 py-1 rounded-full font-bold uppercase bg-red-100 text-red-600 flex items-center gap-1">
+                                                        <X className="w-3 h-3" /> Batal
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-stone-500 truncate">{item.providerName}</p>
                                     </div>
-                                    <p className="text-xs text-stone-500 mt-1">{item.providerName}</p>
-                                    
-                                    <div className="flex flex-col items-start mt-2">
+                                </div>
+
+                                <div className="space-y-3">
+                                    <div className="flex flex-col gap-1">
                                         {dateParts ? (
-                                            <>
-                                                <span className="text-[10px] text-stone-500 font-medium">{dateParts.date}</span>
-                                                <div className="flex items-center gap-1 mt-0.5">
-                                                    <span className="text-xs font-bold text-stone-700 dark:text-stone-300">{dateParts.time}</span>
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${dateParts.ampm === 'PM' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30'}`}>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[10px] text-stone-400 font-medium">{dateParts.date}</span>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="text-[10px] font-bold text-stone-600 dark:text-stone-300">{dateParts.time}</span>
+                                                    <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${dateParts.ampm === 'PM' ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>
                                                         {dateParts.ampm}
                                                     </span>
                                                 </div>
-                                            </>
+                                            </div>
                                         ) : (
                                             <span className="text-[10px] text-stone-400">{item.date}</span>
                                         )}
                                     </div>
 
-                                    {item.rating && (
-                                        <div className="flex items-center gap-1 mt-2">
-                                            <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                                            <span className="text-[10px] text-stone-500">{item.review}</span>
+                                    {(item.rating || item.isReported) && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {item.rating && (
+                                                <div className="flex items-center gap-1 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-100 dark:border-yellow-900/30">
+                                                    <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                                                    <span className="text-[10px] font-bold text-yellow-700 dark:text-yellow-500">{item.rating}</span>
+                                                </div>
+                                            )}
+                                            {item.isReported && <span className="text-[9px] font-black uppercase text-red-600 bg-red-50 dark:bg-red-900/10 px-2 py-1 rounded-lg border border-red-100 dark:border-red-900/30">Terlapor</span>}
                                         </div>
                                     )}
-                                    {item.isReported && <div className="mt-2 text-[10px] text-orange-600 bg-orange-50 px-2 py-1 rounded inline-block">Laporan dikirim</div>}
-                                </div>
-                            </div>
-                            <div className="flex md:flex-col justify-end items-end gap-2 border-t md:border-t-0 md:border-l pt-3 md:pt-0 md:pl-4">
-                                <Button variant="outline" className="h-9 text-xs px-4" onClick={(e) => { e.stopPropagation(); onSelectItem(item); }}>Detail</Button>
-                                {item.status === 'active' && <Button className="h-9 text-xs px-4" onClick={(e) => { e.stopPropagation(); setShowQr(item.uniqueCode || 'ERR'); }}><QrCode className="w-3 h-3 mr-1" /> Kode</Button>}
-                                
-                                {(item.status === 'completed' || item.status === 'active') && (
-                                    <div className="flex gap-2">
-                                        {item.status === 'completed' && !item.rating && (
-                                            <Button variant="outline" className="h-9 text-xs" onClick={(e) => { e.stopPropagation(); setReviewItem(item); }}><MessageSquare className="w-3 h-3" /> Ulas</Button>
+
+                                    <div className="flex items-center gap-2 pt-3 border-t border-stone-100 dark:border-stone-800">
+                                        <Button variant="outline" className="flex-1 h-9 text-[10px] font-black uppercase tracking-widest rounded-xl" onClick={(e) => { e.stopPropagation(); onSelectItem(item); }}>Detail</Button>
+                                        {item.status === 'active' && (
+                                            <Button className="flex-1 h-9 text-[10px] font-black uppercase tracking-widest rounded-xl" onClick={(e) => { e.stopPropagation(); setShowQr(item.uniqueCode || 'ERR'); }}>
+                                                <QrCode className="w-3 h-3 mr-1" /> Kode
+                                            </Button>
                                         )}
-                                        {!item.isReported && item.status === 'completed' && (
-                                            <Button variant="ghost" className="h-9 text-xs text-red-500" onClick={(e) => handleOpenReport(e, item)}><AlertTriangle className="w-3 h-3" /> Lapor</Button>
+                                        {item.status === 'completed' && !item.rating && (
+                                            <Button variant="outline" className="flex-1 h-9 text-[10px] font-black uppercase tracking-widest rounded-xl border-orange-200 text-orange-600 hover:bg-orange-50" onClick={(e) => { e.stopPropagation(); setReviewItem(item); }}>
+                                                <MessageSquare className="w-3 h-3 mr-1" /> Ulas
+                                            </Button>
+                                        )}
+                                        {item.status === 'completed' && !item.isReported && (
+                                            <button onClick={(e) => handleOpenReport(e, item)} className="p-2 text-stone-400 hover:text-red-500 transition-colors">
+                                                <AlertTriangle className="w-4 h-4" />
+                                            </button>
                                         )}
                                     </div>
-                                )}
+                                </div>
                             </div>
-                        </div>
-                    )})
+                        );
+                    })
                 )}
             </div>
 
             {showQr && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl max-w-sm w-full text-center relative">
-                        <button onClick={() => setShowQr(null)} className="absolute top-4 right-4"><X className="w-6 h-6 text-stone-400" /></button>
+                <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-stone-900 p-6 rounded-2xl max-w-sm w-full text-center relative shadow-2xl">
+                        <button onClick={() => setShowQr(null)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-600">
+                            <X className="w-6 h-6" />
+                        </button>
                         <h3 className="font-bold dark:text-white mb-4">Kode Penukaran</h3>
-                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${showQr}`} alt="QR" className="w-48 h-48 mx-auto mb-4 p-2 border rounded-xl" />
+                        <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${showQr}`} alt="QR" className="w-48 h-48 mx-auto mb-4 p-2 border rounded-xl bg-white" />
                         <p className="text-2xl font-mono font-bold text-stone-900 dark:text-white">{showQr}</p>
                     </div>
                 </div>
             )}
+
             {reviewItem && <ReviewModal item={reviewItem} onClose={() => setReviewItem(null)} onSubmit={handleReviewSubmit} />}
             {!onOpenReport && reportItem && <ReportModal item={reportItem} onClose={() => setReportItem(null)} onSubmit={handleReportSubmit} />}
         </div>

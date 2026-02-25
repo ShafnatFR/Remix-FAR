@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Settings, Lock, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '../../components/Button';
 
@@ -16,13 +16,29 @@ interface SystemSetting {
     unit?: string;
 }
 
+const DEFAULT_SETTINGS: SystemSetting[] = [
+    // Emergency Controls
+    { id: 'maintenance', name: 'Maintenance Mode', description: 'Matikan semua akses user sementara.', value: false, type: 'toggle', category: 'emergency' },
+    { id: 'disable_signup', name: 'Disable New Signups', description: 'Cegah pendaftaran user baru.', value: false, type: 'toggle', category: 'emergency' },
+    { id: 'readonly_mode', name: 'Read-Only Mode', description: 'User hanya bisa melihat, tidak bisa menambah/edit data.', value: false, type: 'toggle', category: 'emergency' },
+];
+
+const STORAGE_KEY = 'far_system_config';
+
 export const SystemConfig: React.FC = () => {
-    const [settings, setSettings] = useState<SystemSetting[]>([
-        // Emergency Controls
-        { id: 'maintenance', name: 'Maintenance Mode', description: 'Matikan semua akses user sementara.', value: false, type: 'toggle', category: 'emergency' },
-        { id: 'disable_signup', name: 'Disable New Signups', description: 'Cegah pendaftaran user baru.', value: false, type: 'toggle', category: 'emergency' },
-        { id: 'readonly_mode', name: 'Read-Only Mode', description: 'User hanya bisa melihat, tidak bisa menambah/edit data.', value: false, type: 'toggle', category: 'emergency' },
-    ]);
+    const [settings, setSettings] = useState<SystemSetting[]>(() => {
+        try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                const parsed = JSON.parse(saved) as Record<string, boolean | number | string>;
+                return DEFAULT_SETTINGS.map(s => ({
+                    ...s,
+                    value: parsed[s.id] !== undefined ? parsed[s.id] : s.value
+                }));
+            }
+        } catch (e) { /* ignore parse errors */ }
+        return DEFAULT_SETTINGS;
+    });
 
     const [activeCategory, setActiveCategory] = useState('emergency');
     const [isSaving, setIsSaving] = useState(false);
@@ -40,11 +56,21 @@ export const SystemConfig: React.FC = () => {
 
     const handleSaveConfig = async () => {
         setIsSaving(true);
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        setIsSaving(false);
-        setHasChanges(false);
-        setSuccessMessage('Konfigurasi berhasil disimpan!');
-        setTimeout(() => setSuccessMessage(''), 3000);
+        try {
+            // Persist to localStorage
+            const configMap: Record<string, boolean | number | string> = {};
+            settings.forEach(s => { configMap[s.id] = s.value; });
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(configMap));
+
+            setHasChanges(false);
+            setSuccessMessage('Konfigurasi berhasil disimpan!');
+            setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (error) {
+            console.error("Failed to save config:", error);
+            alert("Gagal menyimpan konfigurasi.");
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const filteredSettings = settings.filter(s => s.category === activeCategory);
@@ -134,8 +160,8 @@ export const SystemConfig: React.FC = () => {
                                 key={cat.id}
                                 onClick={() => setActiveCategory(cat.id)}
                                 className={`w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all ${activeCategory === cat.id
-                                        ? `${colorClasses[cat.color as keyof typeof colorClasses]} font-bold`
-                                        : 'text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800'
+                                    ? `${colorClasses[cat.color as keyof typeof colorClasses]} font-bold`
+                                    : 'text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800'
                                     }`}
                             >
                                 <Icon className="w-5 h-5" />

@@ -204,28 +204,28 @@ export interface VolunteerTask {
 }
 
 export interface RankLevel {
-    id: number;
-    name: string;
-    minPoints: number;
-    icon: any; 
-    benefits: string[];
+  id: number;
+  name: string;
+  minPoints: number;
+  icon: any;
+  benefits: string[];
 }
 
 export interface DailyQuest {
-    id: number;
-    title: string;
-    target: number;
-    current: number;
-    reward: number;
-    completed: boolean;
+  id: number;
+  title: string;
+  target: number;
+  current: number;
+  reward: number;
+  completed: boolean;
 }
 
 export interface LeaderboardItem {
-    id: number;
-    name: string;
-    points: number;
-    rank: number;
-    avatar: string;
+  id: number;
+  name: string;
+  points: number;
+  rank: number;
+  avatar: string;
 }
 
 export interface Notification {
@@ -256,33 +256,32 @@ export interface Report {
 }
 
 export interface DistributionTask {
-    id: string;
-    volunteer: string;
-    from: string;
-    to: string;
-    status: 'pending' | 'picking_up' | 'delivering' | 'completed';
-    startTime: string;
-    priority: 'normal' | 'high';
-    distance: string;
+  id: string;
+  volunteer: string;
+  from: string;
+  to: string;
+  status: 'pending' | 'picking_up' | 'delivering' | 'completed';
+  startTime: string;
+  priority: 'normal' | 'high';
 }
 
 export interface AdminUser {
-    id: string;
-    name: string;
-    email: string;
-    role: 'super_admin' | 'admin_manager';
-    permissions: string[];
-    status: 'active' | 'suspended';
-    lastLogin: string;
+  id: string;
+  name: string;
+  email: string;
+  role: 'super_admin' | 'admin_manager';
+  permissions: string[];
+  status: 'active' | 'suspended';
+  lastLogin: string;
 }
 
 export interface SystemLog {
-    id: string;
-    timestamp: string;
-    actor: string;
-    action: string;
-    details: string;
-    severity: 'info' | 'warning' | 'critical';
+  id: string;
+  timestamp: string;
+  actor: string;
+  action: string;
+  details: string;
+  severity: 'info' | 'warning' | 'critical';
 }
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -303,55 +302,55 @@ export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 export type DeliveryMethod = 'pickup' | 'delivery' | 'both';
 
 export interface ProviderOrder {
-    id: string;
-    uniqueCode?: string;
-    foodName: string;
+  id: string;
+  uniqueCode?: string;
+  foodName: string;
+  description: string;
+  quantity: string;
+  imageUrl: string;
+  status: 'active' | 'claimed' | 'completed' | 'cancelled';
+  isScanned?: boolean;
+  deliveryMethod: 'pickup' | 'delivery';
+  receiver: {
+    name: string;
+    avatar: string;
+    phone: string;
+    address: string;
+  };
+  courier?: {
+    name: string;
+    avatar: string;
+    phone: string;
+  };
+  timestamps: {
+    claimedAt?: string;
+    pickedUpAt?: string;
+    completedAt?: string;
+  };
+  rating?: {
+    stars: number;
+    comment: string;
+    mediaUrls?: string[];
+  };
+  report?: {
+    issue: string;
     description: string;
-    quantity: string;
-    imageUrl: string;
-    status: 'active' | 'claimed' | 'completed' | 'cancelled';
-    isScanned?: boolean;
-    deliveryMethod: 'pickup' | 'delivery';
-    receiver: {
-        name: string;
-        avatar: string;
-        phone: string;
-        address: string;
-    };
-    courier?: {
-        name: string;
-        avatar: string;
-        phone: string;
-    };
-    timestamps: {
-        claimedAt?: string;
-        pickedUpAt?: string;
-        completedAt?: string;
-    };
-    rating?: {
-        stars: number;
-        comment: string;
-        mediaUrls?: string[];
-    };
-    report?: {
-        issue: string;
-        description: string;
-        evidenceUrl?: string;
-        isUrgent: boolean;
-    };
-    impact?: {
-        points: number;
-        co2: number;
-    };
+    evidenceUrl?: string;
+    isUrgent: boolean;
+  };
+  impact?: {
+    points: number;
+    co2: number;
+  };
 }
 
 export interface Review {
-    id: string;
-    orderId?: string;
-    foodName?: string;
-    user: string;
-    rating: number;
-    comment: string;
-    date: string;
-    mediaUrls?: string[];
+  id: string;
+  orderId?: string;
+  foodName?: string;
+  user: string;
+  rating: number;
+  comment: string;
+  date: string;
+  mediaUrls?: string[];
 }

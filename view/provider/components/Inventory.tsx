@@ -15,7 +15,7 @@ interface InventoryManagerProps {
     initialFilter: 'all' | 'rated' | 'reported' | null;
     onUpdateStatus: (claimId: string, status: 'completed' | 'active') => void;
     currentUser: UserData | null;
-    onRefresh?: () => void; 
+    onRefresh?: () => void;
     onNavigate: (view: string) => void;
 }
 
@@ -35,6 +35,13 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     const [currentView, setCurrentView] = useState<'stock' | 'orders' | 'history'>('stock');
     const [isTransitioning, setIsTransitioning] = useState(false);
 
+    // Auto-switch to history if initial filter is provided
+    React.useEffect(() => {
+        if (initialFilter) {
+            setCurrentView('history');
+        }
+    }, [initialFilter]);
+
     // Mappers
     const mapClaimToOrder = (claim: ClaimHistoryItem): ProviderOrder => ({
         id: claim.id,
@@ -50,7 +57,7 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
             name: claim.receiverName || 'Penerima',
             avatar: (claim.receiverName || 'U').charAt(0).toUpperCase(),
             phone: claim.receiverPhone || '',
-            address: (claim as any).receiverLocation?.address || 'Lokasi tidak tersedia' 
+            address: (claim as any).receiverLocation?.address || 'Lokasi tidak tersedia'
         },
         courier: claim.courierName ? {
             name: claim.courierName,
@@ -75,10 +82,10 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         impact: claim.socialImpact ? {
             points: claim.socialImpact.totalPoints,
             co2: claim.socialImpact.co2Saved
-        } : { 
+        } : {
             // Fallback default jika data impact belum ada
-            points: 50, 
-            co2: 2.5 
+            points: 50,
+            co2: 2.5
         }
     });
 
@@ -88,14 +95,14 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     // Wrapper function to handle view switching with animation
     const handleSwitchView = (view: 'stock' | 'orders' | 'history') => {
         if (view === currentView) return;
-        
+
         // 1. Immediately switch view to update Header/Nav
         setCurrentView(view);
-        
+
         // 2. Trigger loading state for content area
         setIsTransitioning(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        
+
         // 3. Artificial delay for smooth splash effect
         setTimeout(() => {
             setIsTransitioning(false);
@@ -103,12 +110,12 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     };
 
     if (currentView === 'stock') {
-        return <StockManager 
-            foodItems={foodItems} 
-            setFoodItems={setFoodItems} 
-            currentView={currentView} 
+        return <StockManager
+            foodItems={foodItems}
+            setFoodItems={setFoodItems}
+            currentView={currentView}
             setCurrentView={handleSwitchView}
-            currentUser={currentUser} 
+            currentUser={currentUser}
             isLoading={isTransitioning} // Pass loading state
             onRefresh={onRefresh} // Pass refresh
             onNavigate={onNavigate}
@@ -116,9 +123,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
     }
 
     if (currentView === 'orders') {
-        return <OrderList 
-            orders={orders} 
-            currentView={currentView} 
+        return <OrderList
+            orders={orders}
+            currentView={currentView}
             setCurrentView={handleSwitchView}
             onUpdateStatus={onUpdateStatus}
             isLoading={isTransitioning} // Pass loading state
@@ -126,9 +133,9 @@ export const InventoryManager: React.FC<InventoryManagerProps> = ({
         />;
     }
 
-    return <HistoryList 
-        history={history} 
-        currentView={currentView} 
+    return <HistoryList
+        history={history}
+        currentView={currentView}
         setCurrentView={handleSwitchView}
         targetOrderId={targetOrderId}
         clearTargetOrder={clearTargetOrder}

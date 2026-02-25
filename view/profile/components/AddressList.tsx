@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Plus, Trash2, Loader2, Edit3, Check, Star, X, Navigation, RefreshCw } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { Address } from '../../../types';
+import { Skeleton } from '../../components/Skeleton';
 import { MapContainer, TileLayer, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -28,15 +29,34 @@ const MapUpdater = ({ center }: { center: [number, number] }) => {
     return null;
 };
 
+const SkeletonAddress = () => (
+    <div className="bg-white dark:bg-[#1C1917] p-5 rounded-2xl border border-stone-200 dark:border-[#292524] relative overflow-hidden shadow-sm">
+        <div className="flex items-start gap-4">
+            <Skeleton variant="rectangle" className="w-12 h-12 rounded-xl shrink-0" />
+            <div className="flex-1 space-y-3">
+                <Skeleton variant="text" className="h-4 w-1/3" />
+                <Skeleton variant="text" className="h-3 w-3/4" />
+                <Skeleton variant="text" className="h-3 w-1/2" />
+            </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-stone-100 dark:border-[#292524]">
+            <Skeleton variant="rectangle" className="h-8 w-20 rounded-lg" />
+            <Skeleton variant="rectangle" className="h-8 w-16 rounded-lg" />
+            <Skeleton variant="rectangle" className="h-8 w-16 rounded-lg" />
+        </div>
+    </div>
+);
+
 interface AddressListProps {
     addresses: Address[];
-    onAddAddress: (addr: Address) => Promise<void>; 
+    onAddAddress: (addr: Address) => Promise<void>;
     onUpdateAddress?: (addr: Address) => Promise<void>;
     onDeleteAddress?: (id: string) => void;
     role?: string;
+    isLoading?: boolean;
 }
 
-export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddress, onUpdateAddress, onDeleteAddress, role }) => {
+export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddress, onUpdateAddress, onDeleteAddress, role, isLoading }) => {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
@@ -45,13 +65,13 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
     const [mapCenter, setMapCenter] = useState<[number, number] | null>(null);
     const defaultMapCenter: [number, number] = [-6.200000, 106.816666]; // Default Jakarta
     const isProgrammaticMove = useRef(false);
-    
-    const [formData, setFormData] = useState<Address>({ 
-        id: '', 
-        label: 'Alamat Saya', 
-        fullAddress: '', 
-        receiverName: '-', 
-        phone: '-', 
+
+    const [formData, setFormData] = useState<Address>({
+        id: '',
+        label: 'Alamat Saya',
+        fullAddress: '',
+        receiverName: '-',
+        phone: '-',
         isPrimary: false,
         lat: undefined,
         lng: undefined
@@ -87,7 +107,7 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
 
     const handleRefreshMap = async () => {
         if (!formData.fullAddress) return;
-        
+
         // Forward geocoding to find lat/lng from address text
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.fullAddress)}&limit=1`);
@@ -149,7 +169,7 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
 
     const handleSave = async () => {
         if (!formData.fullAddress) return alert("Mohon isi alamat lengkap");
-        
+
         setIsSaving(true);
         try {
             if (editingId && onUpdateAddress) {
@@ -167,8 +187,8 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
     };
 
     const setAsPrimary = async (addr: Address) => {
-        if(onUpdateAddress) {
-            await onUpdateAddress({...addr, isPrimary: true});
+        if (onUpdateAddress) {
+            await onUpdateAddress({ ...addr, isPrimary: true });
         }
     };
 
@@ -177,27 +197,27 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
             {isFormOpen ? (
                 <div className="bg-white dark:bg-[#1C1917] p-6 rounded-3xl border border-stone-200 dark:border-[#2C1810] space-y-6 shadow-xl relative">
                     <button onClick={resetForm} className="absolute top-6 right-6 text-stone-400 hover:text-stone-900 dark:hover:text-white transition-colors"><X className="w-6 h-6" /></button>
-                    
+
                     <div className="flex justify-between items-center mb-2">
                         <h3 className="text-xl font-black text-stone-900 dark:text-white uppercase tracking-tight">{editingId ? 'Edit Alamat' : 'Tambah Alamat'}</h3>
                     </div>
-                    
+
                     <div className="space-y-4">
                         {/* Map Embed */}
                         <div className="w-full h-56 bg-stone-100 dark:bg-[#0C0A09] rounded-3xl overflow-hidden border border-stone-200 dark:border-[#292524] relative group z-0">
                             <div className="w-full h-full dark:invert dark:hue-rotate-180">
                                 {mapCenter && (
                                     <MapContainer center={mapCenter} zoom={16} zoomControl={false} className="w-full h-full z-0">
-                                    <TileLayer 
-                                        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                                    />
-                                    <MapUpdater center={mapCenter} />
-                                    <MapEvents onMoveEnd={handleMapMoveEnd} />
-                                </MapContainer>
+                                        <TileLayer
+                                            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                                        />
+                                        <MapUpdater center={mapCenter} />
+                                        <MapEvents onMoveEnd={handleMapMoveEnd} />
+                                    </MapContainer>
                                 )}
                             </div>
-                            
+
                             {/* Fixed center marker */}
                             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 pointer-events-none drop-shadow-lg">
                                 <div className="relative">
@@ -206,7 +226,7 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
                                 </div>
                             </div>
 
-                            <button 
+                            <button
                                 onClick={() => handleUseMyLocation()}
                                 className="absolute bottom-4 right-4 z-10 p-3 bg-white dark:bg-stone-800 rounded-full border border-stone-200 dark:border-stone-700 shadow-lg active:scale-90 transition-transform"
                                 title="Gunakan Lokasi Saya"
@@ -220,15 +240,15 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
                                 <MapPin className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
                                 <div className="flex-1 space-y-1">
                                     <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest">Alamat Lengkap</label>
-                                    <textarea 
-                                        className="w-full bg-transparent border-0 text-stone-900 dark:text-white p-0 focus:ring-0 placeholder-stone-400 dark:placeholder-stone-600 transition-all text-sm font-bold leading-relaxed resize-none" 
-                                        rows={3} 
-                                        value={formData.fullAddress} 
-                                        onChange={e => setFormData({...formData, fullAddress: e.target.value})}
-                                        placeholder="Tuliskan nama jalan, nomor rumah, patokan, RT/RW..." 
+                                    <textarea
+                                        className="w-full bg-transparent border-0 text-stone-900 dark:text-white p-0 focus:ring-0 placeholder-stone-400 dark:placeholder-stone-600 transition-all text-sm font-bold leading-relaxed resize-none"
+                                        rows={3}
+                                        value={formData.fullAddress}
+                                        onChange={e => setFormData({ ...formData, fullAddress: e.target.value })}
+                                        placeholder="Tuliskan nama jalan, nomor rumah, patokan, RT/RW..."
                                     />
                                     <div className="flex justify-end pt-2">
-                                        <button 
+                                        <button
                                             onClick={handleRefreshMap}
                                             className="px-6 py-1.5 rounded-full border border-green-600 text-green-600 text-xs font-bold hover:bg-green-50 transition-colors"
                                         >
@@ -241,20 +261,20 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
 
                         <div className="space-y-2">
                             <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest">Nama Alamat <span className="text-red-500">*</span></label>
-                            <input 
+                            <input
                                 type="text"
-                                className="w-full bg-white dark:bg-[#1C1917] border-b-2 border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white px-0 py-2 focus:outline-none focus:border-green-600 placeholder-stone-400 dark:placeholder-stone-600 transition-all text-base font-bold" 
-                                value={formData.label} 
-                                onChange={e => setFormData({...formData, label: e.target.value})}
-                                placeholder={role === 'receiver' ? "Cth: Panti Asuhan Kasih Ibu" : "Cth: Toko Roti Berkah"} 
+                                className="w-full bg-white dark:bg-[#1C1917] border-b-2 border-stone-200 dark:border-stone-800 text-stone-900 dark:text-white px-0 py-2 focus:outline-none focus:border-green-600 placeholder-stone-400 dark:placeholder-stone-600 transition-all text-base font-bold"
+                                value={formData.label}
+                                onChange={e => setFormData({ ...formData, label: e.target.value })}
+                                placeholder={role === 'receiver' ? "Cth: Panti Asuhan Kasih Ibu" : "Cth: Toko Roti Berkah"}
                             />
                         </div>
-                        
+
                         <label className="flex items-center gap-3 p-4 bg-stone-50 dark:bg-[#0C0A09] rounded-xl border border-stone-200 dark:border-[#292524] cursor-pointer hover:border-green-500/50 transition-all">
-                            <input 
-                                type="checkbox" 
-                                checked={formData.isPrimary} 
-                                onChange={e => setFormData({...formData, isPrimary: e.target.checked})}
+                            <input
+                                type="checkbox"
+                                checked={formData.isPrimary}
+                                onChange={e => setFormData({ ...formData, isPrimary: e.target.checked })}
                                 className="w-5 h-5 text-green-600 rounded focus:ring-green-500 bg-white dark:bg-[#1C1917] border-stone-300 dark:border-stone-600"
                             />
                             <span className="text-sm text-stone-700 dark:text-stone-300 font-bold">Jadikan Lokasi Utama</span>
@@ -262,9 +282,9 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
                     </div>
 
                     <div className="pt-4">
-                        <Button 
-                            onClick={handleSave} 
-                            disabled={isSaving} 
+                        <Button
+                            onClick={handleSave}
+                            disabled={isSaving}
                             className="w-full h-14 bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400 font-black uppercase tracking-widest rounded-full hover:bg-stone-300 dark:hover:bg-stone-700 transition-all disabled:opacity-50"
                         >
                             {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'SIMPAN'}
@@ -273,17 +293,23 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
                 </div>
             ) : (
                 <div className="space-y-4 max-w-2xl mx-auto">
-                    {addresses.length === 0 ? (
+                    {isLoading ? (
+                        <>
+                            <SkeletonAddress />
+                            <SkeletonAddress />
+                            <SkeletonAddress />
+                        </>
+                    ) : addresses.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-16 bg-white dark:bg-[#1C1917] rounded-3xl border border-dashed border-stone-200 dark:border-[#292524] shadow-sm">
                             <div className="w-20 h-20 bg-red-50 dark:bg-red-900/10 rounded-full flex items-center justify-center mb-6 border border-red-100 dark:border-red-900/30">
                                 <MapPin className="w-10 h-10 text-red-500" />
                             </div>
                             <p className="text-stone-900 dark:text-stone-300 text-lg font-bold">Belum ada lokasi tersimpan</p>
                             <p className="text-sm text-stone-500 mt-2 max-w-xs text-center px-4">Tambahkan lokasi untuk memudahkan transaksi donasi.</p>
-                            
-                            <Button 
-                                variant="outline" 
-                                className="mt-8 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white w-auto px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-orange-500/30 active:scale-95 mx-auto" 
+
+                            <Button
+                                variant="outline"
+                                className="mt-8 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white w-auto px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-orange-500/30 active:scale-95 mx-auto"
                                 onClick={handleAddClick}
                             >
                                 <Plus className="w-5 h-5 mr-2" /> Tambah Lokasi
@@ -298,7 +324,7 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
                                             <Check className="w-3 h-3" /> Utama
                                         </div>
                                     )}
-                                    
+
                                     <div className="flex items-start gap-4">
                                         <div className={`p-3 rounded-xl shrink-0 ${addr.isPrimary ? 'bg-red-50 text-red-500 dark:bg-red-500/10' : 'bg-stone-100 dark:bg-[#0C0A09] text-stone-400 dark:text-stone-500'}`}>
                                             <MapPin className="w-6 h-6" />
@@ -324,7 +350,7 @@ export const AddressList: React.FC<AddressListProps> = ({ addresses, onAddAddres
                                     </div>
                                 </div>
                             ))}
-                            <Button 
+                            <Button
                                 onClick={handleAddClick}
                                 className="w-full h-14 bg-white dark:bg-[#1C1917] border-2 border-dashed border-stone-300 dark:border-[#292524] hover:border-orange-500 hover:text-orange-600 text-stone-400 dark:text-stone-500 rounded-2xl font-black uppercase tracking-widest transition-all hover:bg-orange-50 dark:hover:bg-orange-900/10 transform hover:scale-[1.01]"
                             >

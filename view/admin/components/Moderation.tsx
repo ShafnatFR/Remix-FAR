@@ -1,292 +1,318 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Shield, X, CheckCircle2, Clock, Filter, ChevronLeft, ChevronRight, Package, MessageCircle, Image as ImageIcon } from 'lucide-react';
+import { Shield, X, CheckCircle2, Clock, Filter, ChevronLeft, ChevronRight, Package, MessageCircle, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { Button } from '../../components/Button';
-import { Report, ClaimHistoryItem } from '../../../types';
+import { Report, ClaimHistoryItem, UserData } from '../../../types';
+import { db } from '../../../services/db';
 
 interface ModerationProps {
     claims?: ClaimHistoryItem[];
+    users?: UserData[];
 }
 
-export const Moderation: React.FC<ModerationProps> = ({ claims = [] }) => {
-  // Transform reported claims to Report type
-  const realReports: Report[] = useMemo(() => {
-      return claims
-        .filter(c => c.isReported)
-        .map(c => {
-            // Helper to handle evidence format
-            let evidence = c.reportEvidence;
-            // If it's a JSON string array '["url"]', keep it as string to be parsed later or pass as is
-            // If it's a single URL string, it's fine.
-            return {
-                id: `REP-${c.id}`,
-                orderId: c.id,
-                foodName: c.foodName,
-                title: (c as any).reportReason || 'Masalah Umum',
-                description: (c as any).reportDescription || 'Tidak ada deskripsi rinci.',
-                date: c.date,
-                status: (c as any).reportStatus || 'new',
-                reporter: 'Penerima Manfaat',
-                target: c.providerName,
-                isUrgent: true,
-                type: 'quality',
-                evidenceUrl: evidence
-            };
-        });
-  }, [claims]);
+export const Moderation: React.FC<ModerationProps> = ({ claims = [], users = [] }) => {
+    // Transform reported claims to Report type
+    const realReports: Report[] = useMemo(() => {
+        return claims
+            .filter(c => c.isReported)
+            .map(c => {
+                // Helper to handle evidence format
+                let evidence = c.reportEvidence;
+                // If it's a JSON string array '["url"]', keep it as string to be parsed later or pass as is
+                // If it's a single URL string, it's fine.
+                return {
+                    id: `REP-${c.id}`,
+                    orderId: c.id,
+                    foodName: c.foodName,
+                    title: (c as any).reportReason || 'Masalah Umum',
+                    description: (c as any).reportDescription || 'Tidak ada deskripsi rinci.',
+                    date: c.date,
+                    status: (c as any).reportStatus || 'new',
+                    reporter: 'Penerima Manfaat',
+                    target: c.providerName,
+                    isUrgent: true,
+                    type: 'quality',
+                    evidenceUrl: evidence
+                };
+            });
+    }, [claims]);
 
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'investigating' | 'resolved'>('all');
-  
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+    const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+    const [filterStatus, setFilterStatus] = useState<'all' | 'new' | 'investigating' | 'resolved'>('all');
 
-  // Local state to manage status changes within the admin session
-  const [localStatuses, setLocalStatuses] = useState<{[key: string]: string}>({});
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 10;
 
-  const handleAction = (status: 'resolved' | 'dismissed') => {
-      if(selectedReport) {
-          setLocalStatuses(prev => ({...prev, [selectedReport.id]: status}));
-          setSelectedReport(null);
-      }
-  };
+    // Local state to manage status changes within the admin session
+    const [localStatuses, setLocalStatuses] = useState<{ [key: string]: string }>({});
+    const [isProcessing, setIsProcessing] = useState(false);
 
-  const handleChatUser = (role: 'Pelapor' | 'Terlapor', name: string) => {
-      const phone = "6285215376975";
-      const message = `Halo ${role} ${name}, saya Admin Moderasi Food AI Rescue. Saya ingin menindaklanjuti laporan yang masuk.`;
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
-  };
+    const handleAction = async (status: 'resolved' | 'dismissed') => {
+        if (selectedReport) {
+            setIsProcessing(true);
+            try {
+                await db.respondReport(selectedReport.id, status);
+                setLocalStatuses(prev => ({ ...prev, [selectedReport.id]: status }));
+                setSelectedReport(null);
+            } catch (error) {
+                console.error("Failed to update report status:", error);
+                alert("Gagal mengubah status laporan. Coba lagi.");
+            } finally {
+                setIsProcessing(false);
+            }
+        }
+    };
 
-  const getStatus = (report: Report) => localStatuses[report.id] || report.status;
+    const handleChatUser = (role: 'Pelapor' | 'Terlapor', name: string) => {
+        // Look up phone from users data by name
+        const user = users.find(u => u.name.toLowerCase() === name.toLowerCase());
+        const phone = user?.phone || '';
+        if (!phone) {
+            alert(`Nomor telepon ${role} "${name}" tidak ditemukan di database.`);
+            return;
+        }
+        let cleanPhone = phone.replace(/\D/g, '');
+        if (cleanPhone.startsWith('0')) cleanPhone = '62' + cleanPhone.slice(1);
+        else if (!cleanPhone.startsWith('62')) cleanPhone = '62' + cleanPhone;
+        const message = `Halo ${role} ${name}, saya Admin Moderasi Food AI Rescue. Saya ingin menindaklanjuti laporan yang masuk.`;
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+    };
 
-  const filteredReports = realReports.filter(r => {
-      const currentStatus = getStatus(r);
-      return filterStatus === 'all' || currentStatus === filterStatus;
-  });
+    const getStatus = (report: Report) => localStatuses[report.id] || report.status;
 
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentReports = filteredReports.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
+    const filteredReports = realReports.filter(r => {
+        const currentStatus = getStatus(r);
+        return filterStatus === 'all' || currentStatus === filterStatus;
+    });
 
-  useEffect(() => {
-      setCurrentPage(1);
-  }, [filterStatus]);
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentReports = filteredReports.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
 
-  // Helper to parse evidence
-  const getEvidenceList = (report: Report) => {
-      if (!report.evidenceUrl) return [];
-      if (Array.isArray(report.evidenceUrl)) return report.evidenceUrl;
-      if (report.evidenceUrl.startsWith('[')) {
-          try {
-              return JSON.parse(report.evidenceUrl);
-          } catch(e) {
-              return [report.evidenceUrl];
-          }
-      }
-      return [report.evidenceUrl];
-  };
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filterStatus]);
 
-  return (
-    <div className="space-y-8 animate-in fade-in">
-       <div className="flex justify-between items-center">
-          <h2 className="text-xl font-bold text-stone-900 dark:text-white flex items-center gap-2">
-              <Shield className="w-5 h-5 text-orange-500" /> Moderasi Laporan
-          </h2>
-       </div>
+    // Helper to parse evidence
+    const getEvidenceList = (report: Report) => {
+        if (!report.evidenceUrl) return [];
+        if (Array.isArray(report.evidenceUrl)) return report.evidenceUrl;
+        if (report.evidenceUrl.startsWith('[')) {
+            try {
+                return JSON.parse(report.evidenceUrl);
+            } catch (e) {
+                return [report.evidenceUrl];
+            }
+        }
+        return [report.evidenceUrl];
+    };
 
-       {/* Top Summary Cards */}
-       <div className="grid grid-cols-4 gap-4">
-           {/* ... Keep summary cards same as before ... */}
-           <div 
-                onClick={() => setFilterStatus('all')}
-                className={`p-5 rounded-2xl border-l-4 border-stone-800 shadow-sm cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === 'all' ? 'bg-stone-100 dark:bg-stone-800 ring-2 ring-stone-200 dark:ring-stone-700' : 'bg-white dark:bg-stone-900'}`}
-            >
-               <h3 className="text-3xl font-black text-stone-900 dark:text-white">{realReports.length}</h3>
-               <p className="text-xs text-stone-500 uppercase font-bold mt-1">Total Laporan</p>
-           </div>
-           <div 
-                onClick={() => setFilterStatus('new')}
-                className={`p-5 rounded-2xl border-l-4 border-red-500 shadow-sm bg-red-50/50 cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === 'new' ? 'ring-2 ring-red-200' : ''}`}
-            >
-               <h3 className="text-3xl font-black text-red-600">{realReports.filter(r => getStatus(r) === 'new').length}</h3>
-               <p className="text-xs text-red-500 uppercase font-bold mt-1">Baru</p>
-           </div>
-           <div 
-                onClick={() => setFilterStatus('investigating')}
-                className={`p-5 rounded-2xl border-l-4 border-orange-500 shadow-sm bg-orange-50/50 cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === 'investigating' ? 'ring-2 ring-orange-200' : ''}`}
-            >
-               <h3 className="text-3xl font-black text-orange-600">{realReports.filter(r => getStatus(r) === 'investigating').length}</h3>
-               <p className="text-xs text-orange-500 uppercase font-bold mt-1">Diproses</p>
-           </div>
-           <div 
-                onClick={() => setFilterStatus('resolved')}
-                className={`p-5 rounded-2xl border-l-4 border-green-500 shadow-sm bg-green-50/50 cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === 'resolved' ? 'ring-2 ring-green-200' : ''}`}
-            >
-               <h3 className="text-3xl font-black text-green-600">{realReports.filter(r => getStatus(r) === 'resolved').length}</h3>
-               <p className="text-xs text-green-500 uppercase font-bold mt-1">Selesai</p>
-           </div>
-       </div>
+    return (
+        <div className="space-y-8 animate-in fade-in">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-stone-900 dark:text-white flex items-center gap-2">
+                    <Shield className="w-5 h-5 text-orange-500" /> Moderasi Laporan
+                </h2>
+            </div>
 
-       {/* Search & Filter */}
-       <div className="flex gap-4 items-center">
-           <input 
-                type="text" 
-                placeholder="Cari laporan..." 
-                className="flex-1 p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-[#FDFBF7] dark:bg-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" 
-           />
-           <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-stone-500" />
-                <span className="text-sm font-bold text-stone-600 dark:text-stone-300">Filter:</span>
-                <select 
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value as any)}
-                    className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 px-4 py-2.5 rounded-xl text-sm font-bold text-stone-600 dark:text-stone-300 focus:outline-none focus:border-orange-500"
+            {/* Top Summary Cards */}
+            <div className="grid grid-cols-4 gap-4">
+                {/* ... Keep summary cards same as before ... */}
+                <div
+                    onClick={() => setFilterStatus('all')}
+                    className={`p-5 rounded-2xl border-l-4 border-stone-800 shadow-sm cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === 'all' ? 'bg-stone-100 dark:bg-stone-800 ring-2 ring-stone-200 dark:ring-stone-700' : 'bg-white dark:bg-stone-900'}`}
                 >
-                    <option value="all">Semua Status</option>
-                    <option value="new">Baru</option>
-                    <option value="investigating">Diproses</option>
-                    <option value="resolved">Selesai</option>
-                </select>
-           </div>
-       </div>
+                    <h3 className="text-3xl font-black text-stone-900 dark:text-white">{realReports.length}</h3>
+                    <p className="text-xs text-stone-500 uppercase font-bold mt-1">Total Laporan</p>
+                </div>
+                <div
+                    onClick={() => setFilterStatus('new')}
+                    className={`p-5 rounded-2xl border-l-4 border-red-500 shadow-sm bg-red-50/50 cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === 'new' ? 'ring-2 ring-red-200' : ''}`}
+                >
+                    <h3 className="text-3xl font-black text-red-600">{realReports.filter(r => getStatus(r) === 'new').length}</h3>
+                    <p className="text-xs text-red-500 uppercase font-bold mt-1">Baru</p>
+                </div>
+                <div
+                    onClick={() => setFilterStatus('investigating')}
+                    className={`p-5 rounded-2xl border-l-4 border-orange-500 shadow-sm bg-orange-50/50 cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === 'investigating' ? 'ring-2 ring-orange-200' : ''}`}
+                >
+                    <h3 className="text-3xl font-black text-orange-600">{realReports.filter(r => getStatus(r) === 'investigating').length}</h3>
+                    <p className="text-xs text-orange-500 uppercase font-bold mt-1">Diproses</p>
+                </div>
+                <div
+                    onClick={() => setFilterStatus('resolved')}
+                    className={`p-5 rounded-2xl border-l-4 border-green-500 shadow-sm bg-green-50/50 cursor-pointer transition-all hover:scale-[1.02] ${filterStatus === 'resolved' ? 'ring-2 ring-green-200' : ''}`}
+                >
+                    <h3 className="text-3xl font-black text-green-600">{realReports.filter(r => getStatus(r) === 'resolved').length}</h3>
+                    <p className="text-xs text-green-500 uppercase font-bold mt-1">Selesai</p>
+                </div>
+            </div>
 
-       {/* Report List */}
-       <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden">
-           <table className="w-full text-left border-collapse">
-               <thead className="bg-stone-50 dark:bg-stone-950 text-stone-500 text-[10px] uppercase font-bold tracking-wider">
-                   <tr>
-                       <th className="p-5">Laporan</th>
-                       <th className="p-5">Target</th>
-                       <th className="p-5">Prioritas</th>
-                       <th className="p-5">Status</th>
-                       <th className="p-5 text-right">Aksi</th>
-                   </tr>
-               </thead>
-               <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
-                   {currentReports.length === 0 ? (
-                       <tr>
-                           <td colSpan={5} className="p-8 text-center text-stone-500">
-                               Tidak ada laporan dengan status ini.
-                           </td>
-                       </tr>
-                   ) : (
-                       currentReports.map(report => {
-                       const currentStatus = getStatus(report);
-                       return (
-                       <tr key={report.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
-                           <td className="p-5">
-                               <p className="font-bold text-sm text-stone-900 dark:text-white mb-1">{report.title}</p>
-                               <div className="flex items-center gap-1 text-xs text-stone-500 mb-1">
-                                   <Package className="w-3 h-3" /> {report.foodName}
-                               </div>
-                               <p className="text-xs text-stone-400 line-clamp-1 max-w-xs">{report.description}</p>
-                               <div className="flex items-center gap-2 mt-2 text-[10px] text-stone-400">
-                                   <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> {report.reporter}</span>
-                                   <span>•</span>
-                                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {report.date}</span>
-                               </div>
-                           </td>
-                           <td className="p-5">
-                               <div className="flex items-center gap-2 text-sm text-stone-600">
-                                   <span className="p-1.5 bg-blue-100 rounded text-blue-600"><Shield className="w-4 h-4" /></span>
-                                   <span className="font-medium">{report.target}</span>
-                               </div>
-                           </td>
-                           <td className="p-5">
-                               <span className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${report.priority === 'high' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
-                                   {report.priority === 'high' ? 'Urgent' : 'Medium'}
-                               </span>
-                           </td>
-                           <td className="p-5">
-                               <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${currentStatus === 'new' ? 'bg-red-50 text-red-600 border border-red-100' : currentStatus === 'resolved' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
-                                   {currentStatus === 'dismissed' ? 'Ditolak' : currentStatus.replace('_', ' ')}
-                               </span>
-                           </td>
-                           <td className="p-5 text-right">
-                               <Button variant="outline" className="h-9 w-auto text-xs px-4" onClick={() => setSelectedReport({...report, status: currentStatus as any})}>Detail</Button>
-                           </td>
-                       </tr>
-                   )})
-                   )}
-               </tbody>
-           </table>
-
-           {/* Pagination Footer */}
-           {filteredReports.length > 0 && (
-            <div className="p-4 bg-stone-50 dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
-                <span className="text-xs text-stone-500 dark:text-stone-400">
-                    Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredReports.length)} of {filteredReports.length} reports
-                </span>
+            {/* Search & Filter */}
+            <div className="flex gap-4 items-center">
+                <input
+                    type="text"
+                    placeholder="Cari laporan..."
+                    className="flex-1 p-3 rounded-xl border border-stone-200 dark:border-stone-800 bg-[#FDFBF7] dark:bg-stone-900 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                />
                 <div className="flex items-center gap-2">
-                    <button 
-                        onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} 
-                        disabled={currentPage === 1}
-                        className="p-2 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    <Filter className="w-4 h-4 text-stone-500" />
+                    <span className="text-sm font-bold text-stone-600 dark:text-stone-300">Filter:</span>
+                    <select
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value as any)}
+                        className="bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 px-4 py-2.5 rounded-xl text-sm font-bold text-stone-600 dark:text-stone-300 focus:outline-none focus:border-orange-500"
                     >
-                        <ChevronLeft className="w-4 h-4 text-stone-600 dark:text-stone-300" />
-                    </button>
-                    <span className="text-xs font-bold text-stone-700 dark:text-stone-200 px-2">
-                        Page {currentPage} of {totalPages}
-                    </span>
-                    <button 
-                        onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} 
-                        disabled={currentPage === totalPages}
-                        className="p-2 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                    >
-                        <ChevronRight className="w-4 h-4 text-stone-600 dark:text-stone-300" />
-                    </button>
+                        <option value="all">Semua Status</option>
+                        <option value="new">Baru</option>
+                        <option value="investigating">Diproses</option>
+                        <option value="resolved">Selesai</option>
+                    </select>
                 </div>
             </div>
-          )}
-       </div>
-       
-       {selectedReport && (
-            <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
-                <div className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-2xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
-                    <button onClick={() => setSelectedReport(null)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-900 dark:hover:text-white"><X className="w-5 h-5" /></button>
-                    
-                    <div className="mb-6">
-                        <span className={`inline-block px-3 py-1 rounded text-xs font-bold uppercase mb-2 ${selectedReport.priority === 'high' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
-                            {selectedReport.priority} Priority
-                        </span>
-                        <h3 className="text-xl font-bold text-stone-900 dark:text-white">{selectedReport.title}</h3>
-                        <p className="text-stone-500 text-sm mt-1">{selectedReport.date} • Oleh {selectedReport.reporter}</p>
-                    </div>
 
-                    <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-xl border border-stone-100 dark:border-stone-700 mb-6">
-                        <p className="text-sm font-bold text-stone-900 dark:text-white mb-2">Deskripsi Masalah</p>
-                        <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">{selectedReport.description}</p>
-                        
-                        {/* EVIDENCE GALLERY */}
-                        {getEvidenceList(selectedReport).length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-stone-200 dark:border-stone-700">
-                                <p className="text-xs font-bold text-stone-500 uppercase mb-2 flex items-center gap-2"><ImageIcon className="w-4 h-4" /> Bukti Foto</p>
-                                <div className="grid grid-cols-2 gap-2">
-                                    {getEvidenceList(selectedReport).map((img, i) => (
-                                        <img key={i} src={img} alt={`Bukti ${i}`} className="w-full h-32 object-cover rounded-lg border border-stone-200" />
-                                    ))}
-                                </div>
-                            </div>
+            {/* Report List */}
+            <div className="bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 shadow-sm overflow-hidden">
+                <table className="w-full text-left border-collapse">
+                    <thead className="bg-stone-50 dark:bg-stone-950 text-stone-500 text-[10px] uppercase font-bold tracking-wider">
+                        <tr>
+                            <th className="p-5">Laporan</th>
+                            <th className="p-5">Target</th>
+                            <th className="p-5">Prioritas</th>
+                            <th className="p-5">Status</th>
+                            <th className="p-5 text-right">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100 dark:divide-stone-800">
+                        {currentReports.length === 0 ? (
+                            <tr>
+                                <td colSpan={5} className="p-8 text-center text-stone-500">
+                                    Tidak ada laporan dengan status ini.
+                                </td>
+                            </tr>
+                        ) : (
+                            currentReports.map(report => {
+                                const currentStatus = getStatus(report);
+                                return (
+                                    <tr key={report.id} className="hover:bg-stone-50 dark:hover:bg-stone-800/50 transition-colors">
+                                        <td className="p-5">
+                                            <p className="font-bold text-sm text-stone-900 dark:text-white mb-1">{report.title}</p>
+                                            <div className="flex items-center gap-1 text-xs text-stone-500 mb-1">
+                                                <Package className="w-3 h-3" /> {report.foodName}
+                                            </div>
+                                            <p className="text-xs text-stone-400 line-clamp-1 max-w-xs">{report.description}</p>
+                                            <div className="flex items-center gap-2 mt-2 text-[10px] text-stone-400">
+                                                <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> {report.reporter}</span>
+                                                <span>•</span>
+                                                <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {report.date}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-5">
+                                            <div className="flex items-center gap-2 text-sm text-stone-600">
+                                                <span className="p-1.5 bg-blue-100 rounded text-blue-600"><Shield className="w-4 h-4" /></span>
+                                                <span className="font-medium">{report.target}</span>
+                                            </div>
+                                        </td>
+                                        <td className="p-5">
+                                            <span className={`px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${report.priority === 'high' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                                                {report.priority === 'high' ? 'Urgent' : 'Medium'}
+                                            </span>
+                                        </td>
+                                        <td className="p-5">
+                                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${currentStatus === 'new' ? 'bg-red-50 text-red-600 border border-red-100' : currentStatus === 'resolved' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-orange-50 text-orange-600 border border-orange-100'}`}>
+                                                {currentStatus === 'dismissed' ? 'Ditolak' : currentStatus.replace('_', ' ')}
+                                            </span>
+                                        </td>
+                                        <td className="p-5 text-right">
+                                            <Button variant="outline" className="h-9 w-auto text-xs px-4" onClick={() => setSelectedReport({ ...report, status: currentStatus as any })}>Detail</Button>
+                                        </td>
+                                    </tr>
+                                )
+                            })
                         )}
-                    </div>
+                    </tbody>
+                </table>
 
-                    <div className="flex gap-2 mb-6">
-                        <Button variant="outline" className="flex-1 text-xs" onClick={() => handleChatUser('Pelapor', selectedReport.reporter)}>
-                            <MessageCircle className="w-4 h-4 mr-2" /> Chat Pelapor
-                        </Button>
-                        <Button variant="outline" className="flex-1 text-xs" onClick={() => handleChatUser('Terlapor', selectedReport.target || 'Donatur')}>
-                            <MessageCircle className="w-4 h-4 mr-2" /> Chat Terlapor
-                        </Button>
+                {/* Pagination Footer */}
+                {filteredReports.length > 0 && (
+                    <div className="p-4 bg-stone-50 dark:bg-stone-950 border-t border-stone-200 dark:border-stone-800 flex items-center justify-between">
+                        <span className="text-xs text-stone-500 dark:text-stone-400">
+                            Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredReports.length)} of {filteredReports.length} reports
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                                disabled={currentPage === 1}
+                                className="p-2 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronLeft className="w-4 h-4 text-stone-600 dark:text-stone-300" />
+                            </button>
+                            <span className="text-xs font-bold text-stone-700 dark:text-stone-200 px-2">
+                                Page {currentPage} of {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                                disabled={currentPage === totalPages}
+                                className="p-2 rounded-lg hover:bg-stone-200 dark:hover:bg-stone-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                                <ChevronRight className="w-4 h-4 text-stone-600 dark:text-stone-300" />
+                            </button>
+                        </div>
                     </div>
+                )}
+            </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                         <Button variant="ghost" onClick={() => handleAction('dismissed')}>Tolak Laporan</Button>
-                         <Button onClick={() => handleAction('resolved')} className="bg-green-600 hover:bg-green-700"><CheckCircle2 className="w-4 h-4 mr-2" /> Tandai Selesai</Button>
+            {selectedReport && (
+                <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-stone-900 w-full max-w-lg rounded-2xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
+                        <button onClick={() => setSelectedReport(null)} className="absolute top-4 right-4 text-stone-400 hover:text-stone-900 dark:hover:text-white"><X className="w-5 h-5" /></button>
+
+                        <div className="mb-6">
+                            <span className={`inline-block px-3 py-1 rounded text-xs font-bold uppercase mb-2 ${selectedReport.priority === 'high' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
+                                {selectedReport.priority} Priority
+                            </span>
+                            <h3 className="text-xl font-bold text-stone-900 dark:text-white">{selectedReport.title}</h3>
+                            <p className="text-stone-500 text-sm mt-1">{selectedReport.date} • Oleh {selectedReport.reporter}</p>
+                        </div>
+
+                        <div className="bg-stone-50 dark:bg-stone-800 p-4 rounded-xl border border-stone-100 dark:border-stone-700 mb-6">
+                            <p className="text-sm font-bold text-stone-900 dark:text-white mb-2">Deskripsi Masalah</p>
+                            <p className="text-sm text-stone-600 dark:text-stone-300 leading-relaxed">{selectedReport.description}</p>
+
+                            {/* EVIDENCE GALLERY */}
+                            {getEvidenceList(selectedReport).length > 0 && (
+                                <div className="mt-4 pt-4 border-t border-stone-200 dark:border-stone-700">
+                                    <p className="text-xs font-bold text-stone-500 uppercase mb-2 flex items-center gap-2"><ImageIcon className="w-4 h-4" /> Bukti Foto</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {getEvidenceList(selectedReport).map((img, i) => (
+                                            <img key={i} src={img} alt={`Bukti ${i}`} className="w-full h-32 object-cover rounded-lg border border-stone-200" />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex gap-2 mb-6">
+                            <Button variant="outline" className="flex-1 text-xs" onClick={() => handleChatUser('Pelapor', selectedReport.reporter)}>
+                                <MessageCircle className="w-4 h-4 mr-2" /> Chat Pelapor
+                            </Button>
+                            <Button variant="outline" className="flex-1 text-xs" onClick={() => handleChatUser('Terlapor', selectedReport.target || 'Donatur')}>
+                                <MessageCircle className="w-4 h-4 mr-2" /> Chat Terlapor
+                            </Button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <Button variant="ghost" onClick={() => handleAction('dismissed')} disabled={isProcessing}>
+                                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Tolak Laporan
+                            </Button>
+                            <Button onClick={() => handleAction('resolved')} className="bg-green-600 hover:bg-green-700" disabled={isProcessing}>
+                                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />} Tandai Selesai
+                            </Button>
+                        </div>
                     </div>
                 </div>
-            </div>
-       )}
-    </div>
-  );
+            )}
+        </div>
+    );
 };

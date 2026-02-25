@@ -1,137 +1,82 @@
 
-import React, { useMemo, useState } from 'react';
-import { Bell } from 'lucide-react'; 
-import { DashboardStats } from './components/dashboard';
+import React, { useState } from 'react';
+import { Bell } from 'lucide-react';
+import { DashboardStats } from './components/dashboard/index';
+import { TimeRangeSelector, TimeRange } from './components/dashboard/TimeRangeSelector';
 import { FoodItem, ClaimHistoryItem, UserData } from '../../types';
-import { NotificationsPage } from '../common/Notifications';
 import { OnboardingTour } from '../common/OnboardingTour';
+import { useProviderStats } from './hooks/useProviderStats';
 
 interface ProviderIndexProps {
-  onOpenNotifications: () => void;
-  isSubNavOpen: boolean;
-  onToggleSubNav: () => void;
-  onNavigate: (view: string) => void;
-  foodItems?: FoodItem[];
-  claimHistory?: ClaimHistoryItem[];
-  currentUser?: UserData | null;
-  onCompleteOnboarding?: () => void; // New Prop
+    onOpenNotifications: () => void;
+    isSubNavOpen: boolean;
+    onToggleSubNav: () => void;
+    onNavigate: (view: string) => void;
+    foodItems?: FoodItem[];
+    claimHistory?: ClaimHistoryItem[];
+    currentUser?: UserData | null;
+    onCompleteOnboarding?: () => void; // New Prop
 }
 
-export const ProviderIndex: React.FC<ProviderIndexProps> = ({ 
-    onNavigate, 
-    foodItems = [], 
-    claimHistory = [], 
+export const ProviderIndex: React.FC<ProviderIndexProps> = ({
+    onOpenNotifications,
+    onNavigate,
+    foodItems = [],
+    claimHistory = [],
     currentUser,
-    onCompleteOnboarding 
+    onCompleteOnboarding
 }) => {
-  const [viewMode, setViewMode] = useState<'main' | 'notifications'>('main');
-  const userName = currentUser?.name || 'Restoran Berkah';
+    const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+    const userName = currentUser?.name || 'Restoran Berkah';
 
-  const handleFinishTour = () => {
-      if (onCompleteOnboarding) {
-          onCompleteOnboarding();
-      }
-  };
+    const handleFinishTour = () => {
+        if (onCompleteOnboarding) {
+            onCompleteOnboarding();
+        }
+    };
 
-  const { stats, weeklyData } = useMemo(() => {
-      const myClaims = claimHistory.filter(h => h.providerName === userName);
-      const completedOrders = myClaims.filter(h => h.status === 'completed');
-      
-      const totalPoints = completedOrders.reduce((acc, curr) => acc + (curr.socialImpact?.totalPoints || 0), 0);
-      const co2Saved = completedOrders.reduce((acc, curr) => acc + (curr.socialImpact?.co2Saved || 0), 0);
-      
-      // REAL RATING CALCULATION
-      const ratedOrders = completedOrders.filter(h => h.rating && h.rating > 0);
-      const totalRating = ratedOrders.reduce((acc, curr) => acc + (curr.rating || 0), 0);
-      const avgRating = ratedOrders.length > 0 ? parseFloat((totalRating / ratedOrders.length).toFixed(1)) : 5.0;
+    const { stats, weeklyData } = useProviderStats(
+        foodItems,
+        claimHistory,
+        currentUser,
+        userName,
+        timeRange
+    );
 
-      const pendingReports = myClaims.filter(h => h.isReported).length;
-      
-      // --- CALCULATE WEEKLY TRENDS (Real Data) ---
-      const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-      const today = new Date();
-      const weeklyPoints = [0, 0, 0, 0, 0, 0, 0];
-      const weeklyCo2 = [0, 0, 0, 0, 0, 0, 0];
 
-      completedOrders.forEach(order => {
-          // Parse date dd/mm/yyyy
-          const parts = order.date.split('/');
-          if (parts.length === 3) {
-              const orderDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-              
-              // Check if order is within last 7 days
-              const diffTime = Math.abs(today.getTime() - orderDate.getTime());
-              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-              
-              if (diffDays <= 7) {
-                  const dayIndex = orderDate.getDay(); // 0 = Sunday
-                  const points = order.socialImpact?.totalPoints || 0;
-                  const co2 = order.socialImpact?.co2Saved || 0;
-                  
-                  weeklyPoints[dayIndex] += points;
-                  weeklyCo2[dayIndex] += co2;
-              }
-          }
-      });
+    return (
+        <>
+            {/* Render Tour based on isNewUser property from currentUser */}
+            {currentUser?.isNewUser && (
+                <OnboardingTour role="provider" onFinish={handleFinishTour} />
+            )}
 
-      return {
-          stats: {
-            totalPoints,
-            co2Saved: parseFloat(co2Saved.toFixed(2)),
-            activeStock: foodItems.length,
-            completedOrders: completedOrders.length,
-            pendingReports,
-            avgRating
-          },
-          weeklyData: {
-              points: weeklyPoints,
-              co2: weeklyCo2
-          }
-      };
-  }, [foodItems, claimHistory, userName]);
+            <div className="p-6 md:p-8 max-w-5xl mx-auto pb-32">
+                <header className="mb-8 p-1 flex items-center justify-between">
+                    <div className="animate-in slide-in-from-left duration-500 flex-1">
+                        <h1 className="text-3xl font-black text-stone-900 dark:text-white tracking-tighter leading-none italic uppercase text-center md:text-left">Dashboard Donatur</h1>
+                        <p className="text-[10px] text-stone-500 font-black uppercase tracking-widest mt-2 bg-stone-100 dark:bg-stone-800 px-3 py-1 rounded-lg w-fit mx-auto md:mx-0">Integritas Pangan AI</p>
+                    </div>
 
-  if (viewMode === 'notifications') {
-      return (
-        <NotificationsPage 
-            role="provider" 
-            onBack={() => setViewMode('main')} 
-            claimHistory={claimHistory} 
-            inventory={foodItems} // Pass Inventory here for upload success notifs
-            userName={userName} 
-        />
-      );
-  }
+                    <button
+                        onClick={onOpenNotifications}
+                        className="p-3 bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 rounded-2xl shadow-sm hover:bg-stone-50 dark:hover:bg-stone-800 transition-all active:scale-90 group relative"
+                    >
+                        <Bell className="w-6 h-6 text-stone-600 dark:text-stone-400 group-hover:text-orange-600 group-hover:rotate-12 transition-all" />
+                        <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-orange-600 border-2 border-white dark:border-stone-900 rounded-full"></span>
+                    </button>
+                </header>
 
-  return (
-    <>
-        {/* Render Tour based on isNewUser property from currentUser */}
-        {currentUser?.isNewUser && (
-            <OnboardingTour role="provider" onFinish={handleFinishTour} />
-        )}
-        
-        <div className="p-6 md:p-8 max-w-5xl mx-auto pb-32">
-            <header className="mb-8 flex justify-between items-start">
-                <div className="animate-in slide-in-from-left duration-500">
-                    <h1 className="text-3xl font-black text-stone-900 dark:text-white tracking-tighter leading-none italic uppercase">Dashboard Donatur</h1>
-                    <p className="text-[10px] text-stone-500 font-black uppercase tracking-widest mt-2 bg-stone-100 dark:bg-stone-800 px-3 py-1 rounded-lg w-fit">Integritas Pangan AI</p>
-                </div>
-                
-                <button 
-                    onClick={() => setViewMode('notifications')} 
-                    className="relative p-3 bg-white dark:bg-stone-900 rounded-2xl border border-stone-200 dark:border-stone-800 text-stone-500 hover:text-orange-600 transition-all shadow-sm group active:scale-95"
-                >
-                    <Bell className="w-6 h-6" />
-                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-orange-600 border-2 border-white rounded-full animate-pulse"></span>
-                </button>
-            </header>
-            
-            <DashboardStats 
-                setActiveTab={onNavigate} 
-                stats={stats} 
-                weeklyPoints={weeklyData.points}
-                weeklyCo2={weeklyData.co2}
-            />
-        </div>
-    </>
-  );
+                <DashboardStats
+                    setActiveTab={onNavigate}
+                    stats={stats}
+                    weeklyPoints={weeklyData.points}
+                    weeklyCo2={weeklyData.co2}
+                    weeklyLabels={weeklyData.labels}
+                    timeRange={timeRange}
+                    onTimeRangeChange={setTimeRange}
+                />
+            </div>
+        </>
+    );
 };

@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { Store, Truck, User, Edit, Mail, Phone, Package, Star, Zap, CheckCircle, Clock, Award, Image, X, ChevronRight, Lock, Heart } from 'lucide-react';
-import { UserRole, UserData } from '../../../types';
-import { ACHIEVEMENT_BADGES, SOCIAL_SYSTEM } from '../../../constants';
+import { UserRole, UserData, Badge } from '../../../types';
+import { SOCIAL_SYSTEM } from '../../../constants';
 
 interface ProfileHeaderProps {
     userData: UserData;
@@ -15,14 +15,15 @@ interface ProfileHeaderProps {
         label2: string; value2: number | string;
         label3: string; value3: number;
     };
+    badges?: Badge[];
 }
 
-export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, bannerImage: initialBanner, onEditBanner, onEditAvatar, stats }) => {
+export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, bannerImage: initialBanner, onEditBanner, onEditAvatar, stats, badges = [] }) => {
     // State management for Cover System
     const [coverMode, setCoverMode] = useState<'image' | 'badge'>('image');
     const [customBanner, setCustomBanner] = useState<string | null>(initialBanner);
     const [selectedBadgeId, setSelectedBadgeId] = useState<string>('');
-    
+
     // UI States
     const [showEditMenu, setShowEditMenu] = useState(false);
     const [showBadgeSelector, setShowBadgeSelector] = useState(false);
@@ -38,18 +39,18 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
     const currentUserPoints = typeof currentStats.value3 === 'number' ? currentStats.value3 : 0;
 
     // Get Badges (Achievements) distinct from Rank
-    const availableBadges = ACHIEVEMENT_BADGES.filter(b => b.role === 'all' || b.role === role);
+    const availableBadges = (badges.length > 0 ? badges : []).filter(b => b.role === 'all' || b.role === role);
     const activeBadge = availableBadges.find(b => b.id === selectedBadgeId);
 
     // --- LOGIC BADGE LEVEL ICON ---
     // Mengambil ikon rank berdasarkan poin user dari SOCIAL_SYSTEM
     const getRankIcon = () => {
         if (!role || !SOCIAL_SYSTEM[role]) return <User className="w-4 h-4 text-white" />;
-        
+
         const tiers = SOCIAL_SYSTEM[role].tiers;
         // Find highest tier reached
         const currentTier = tiers.slice().reverse().find(t => currentUserPoints >= t.minPoints) || tiers[0];
-        
+
         return <div className="text-xl">{currentTier.icon}</div>;
     };
 
@@ -57,7 +58,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
         setShowEditMenu(false);
         if (type === 'upload') {
             setCoverMode('image');
-            onEditBanner(); 
+            onEditBanner();
             const url = prompt("Masukkan URL Gambar Banner:");
             if (url) setCustomBanner(url);
         } else {
@@ -76,7 +77,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
             <div className="relative w-full h-56">
                 {/* Main Cover Container - Full Width (No margin/padding) */}
                 <div className={`h-full w-full relative overflow-hidden group transition-all duration-500 bg-gradient-to-br ${coverMode === 'badge' && activeBadge ? 'from-stone-900 to-black' : !customBanner ? 'from-orange-400 to-amber-500' : ''}`}>
-                    
+
                     {/* Mode: Image Upload */}
                     {coverMode === 'image' && customBanner && (
                         <>
@@ -95,7 +96,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
                                     <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent"></div>
                                 </>
                             )}
-                            
+
                             <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
 
                             <div className="relative z-10 text-white">
@@ -103,7 +104,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
                                 <h2 className="text-3xl font-black italic tracking-tighter drop-shadow-lg">{activeBadge.name}</h2>
                                 <p className="text-xs text-stone-300 max-w-[200px] mt-1 line-clamp-2">{activeBadge.description}</p>
                             </div>
-                            
+
                             <div className="relative z-10 transform translate-x-4">
                                 <div className="text-[80px] drop-shadow-2xl filter saturate-150 animate-in zoom-in duration-700">{activeBadge.icon}</div>
                             </div>
@@ -112,8 +113,8 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
 
                     {/* Edit Button & Menu */}
                     <div className="absolute top-6 right-6 z-30">
-                        <button 
-                            onClick={() => setShowEditMenu(!showEditMenu)} 
+                        <button
+                            onClick={() => setShowEditMenu(!showEditMenu)}
                             className="bg-black/30 hover:bg-black/50 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-lg border border-white/10"
                         >
                             <Edit className="w-3 h-3" /> Ganti Cover
@@ -122,14 +123,14 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
                         {/* Dropdown Menu */}
                         {showEditMenu && (
                             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-stone-900 rounded-xl shadow-xl border border-stone-200 dark:border-stone-800 overflow-hidden animate-in fade-in slide-in-from-top-2">
-                                <button 
+                                <button
                                     onClick={() => handleOptionClick('upload')}
                                     className="w-full text-left px-4 py-3 text-sm font-medium text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2 border-b border-stone-100 dark:border-stone-800"
                                 >
                                     <Image className="w-4 h-4 text-orange-500" /> Upload Foto
                                 </button>
                                 {role !== 'volunteer' && (
-                                    <button 
+                                    <button
                                         onClick={() => handleOptionClick('badge')}
                                         className="w-full text-left px-4 py-3 text-sm font-medium text-stone-700 dark:text-stone-200 hover:bg-stone-50 dark:hover:bg-stone-800 flex items-center gap-2"
                                     >
@@ -176,23 +177,23 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
 
                 {/* Score Cards Dynamic */}
                 <div className="grid grid-cols-3 gap-3 px-4 mt-6 max-w-md mx-auto">
-                    <ScoreCard 
-                        icon={role === 'volunteer' ? CheckCircle : role === 'provider' ? Package : Package} 
-                        value={currentStats.value1} 
-                        label={currentStats.label1} 
-                        color={role === 'volunteer' ? 'blue' : 'orange'} 
+                    <ScoreCard
+                        icon={role === 'volunteer' ? CheckCircle : role === 'provider' ? Package : Package}
+                        value={currentStats.value1}
+                        label={currentStats.label1}
+                        color={role === 'volunteer' ? 'blue' : 'orange'}
                     />
-                    <ScoreCard 
-                        icon={role === 'volunteer' ? Clock : role === 'provider' ? Star : Heart} 
-                        value={currentStats.value2} 
-                        label={currentStats.label2} 
-                        color={role === 'volunteer' ? 'purple' : role === 'provider' ? 'yellow' : 'red'} 
+                    <ScoreCard
+                        icon={role === 'volunteer' ? Clock : role === 'provider' ? Star : Heart}
+                        value={currentStats.value2}
+                        label={currentStats.label2}
+                        color={role === 'volunteer' ? 'purple' : role === 'provider' ? 'yellow' : 'red'}
                     />
-                    <ScoreCard 
-                        icon={Award} 
-                        value={currentStats.value3} 
-                        label={currentStats.label3} 
-                        color="blue" 
+                    <ScoreCard
+                        icon={Award}
+                        value={currentStats.value3}
+                        label={currentStats.label3}
+                        color="blue"
                     />
                 </div>
             </div>
@@ -215,15 +216,14 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
                                 availableBadges.map(badge => {
                                     const isLocked = currentUserPoints < badge.minPoints;
                                     return (
-                                        <button 
+                                        <button
                                             key={badge.id}
                                             onClick={() => !isLocked && applyBadgeCover(badge.id)}
                                             disabled={isLocked}
-                                            className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all group text-left relative overflow-hidden ${
-                                                isLocked 
-                                                ? 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 opacity-70 cursor-not-allowed' 
-                                                : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 hover:border-orange-500 dark:hover:border-orange-500 cursor-pointer'
-                                            }`}
+                                            className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all group text-left relative overflow-hidden ${isLocked
+                                                    ? 'bg-stone-100 dark:bg-stone-800 border-stone-200 dark:border-stone-700 opacity-70 cursor-not-allowed'
+                                                    : 'bg-white dark:bg-stone-900 border-stone-200 dark:border-stone-800 hover:border-orange-500 dark:hover:border-orange-500 cursor-pointer'
+                                                }`}
                                         >
                                             <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl shadow-sm z-10 ${badge.id === selectedBadgeId ? 'bg-orange-100 dark:bg-orange-900/30' : 'bg-stone-100 dark:bg-stone-800'}`}>
                                                 {isLocked ? <Lock className="w-5 h-5 text-stone-400" /> : badge.icon}
@@ -233,7 +233,7 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ userData, role, ba
                                                 <p className="text-xs text-stone-500">{isLocked ? `Butuh ${badge.minPoints} Poin` : badge.description}</p>
                                             </div>
                                             {!isLocked && <ChevronRight className="w-5 h-5 text-stone-300 group-hover:text-orange-500 z-10" />}
-                                            
+
                                             {/* Hover Gradient Effect */}
                                             {!isLocked && <div className="absolute inset-0 bg-orange-50 dark:bg-orange-900/10 opacity-0 group-hover:opacity-100 transition-opacity z-0"></div>}
                                         </button>

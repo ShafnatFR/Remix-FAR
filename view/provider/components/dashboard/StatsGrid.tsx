@@ -4,34 +4,37 @@ import { TrendingUp, Zap, Leaf, Info, X, Target, AlertTriangle, ShieldCheck, Hel
 import { SocialSystemConfig } from '../../../../types';
 
 // Perbaikan SimpleBarChart: Menambahkan label hari di bagian bawah
-const SimpleBarChart = ({ data, colorClass }: { data: number[], colorClass: string }) => {
+const SimpleBarChart = ({ data, labels, colorClass }: { data: number[], labels: string[], colorClass: string }) => {
     const max = Math.max(...data, 1);
-    const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
-  
+
     return (
-      <div className="space-y-1 md:space-y-2 mt-2 md:mt-4">
-        <div className="flex items-end gap-1 md:gap-1.5 h-16 md:h-20 px-1">
-          {data.map((val, idx) => {
-            const heightPercent = Math.max((val / max) * 100, 5);
-            return (
-                <div key={idx} className="flex-1 flex flex-col justify-end group relative h-full">
-                  <div 
-                      className={`w-full rounded-t-sm md:rounded-t-md transition-all duration-700 ease-out shadow-sm ${colorClass}`} 
-                      style={{ height: `${heightPercent}%` }}
-                  ></div>
-                </div>
-            );
-          })}
+        <div className="space-y-1 md:space-y-2 mt-2 md:mt-4">
+            <div className="flex items-end gap-1 md:gap-1.5 h-16 md:h-20 px-1">
+                {data.map((val, idx) => {
+                    const heightPercent = val > 0 ? Math.max((val / max) * 100, 10) : 3;
+                    return (
+                        <div key={idx} className="flex-1 flex flex-col justify-end group relative h-full">
+                            {/* Tooltip */}
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-stone-800 text-white text-[8px] font-bold px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-30">
+                                {val.toLocaleString()}
+                            </div>
+                            <div
+                                className={`w-full rounded-t-sm md:rounded-t-md transition-all duration-700 ease-out shadow-sm ${colorClass} ${val > 0 ? 'opacity-100' : 'opacity-20'}`}
+                                style={{ height: `${heightPercent}%` }}
+                            ></div>
+                        </div>
+                    );
+                })}
+            </div>
+            {/* Label Hari / Waktu */}
+            <div className="flex items-center gap-1 px-1">
+                {labels.map((label, i) => (
+                    <span key={i} className="flex-1 text-center text-[7px] md:text-[9px] font-black text-stone-400 group-hover:text-stone-600 transition-colors uppercase">
+                        {label}
+                    </span>
+                ))}
+            </div>
         </div>
-        {/* Label Hari */}
-        <div className="flex items-center gap-1 px-1">
-          {days.map((day, i) => (
-            <span key={i} className="flex-1 text-center text-[7px] md:text-[9px] font-black text-stone-400 group-hover:text-stone-600 transition-colors uppercase">
-              {day}
-            </span>
-          ))}
-        </div>
-      </div>
     );
 };
 
@@ -42,10 +45,11 @@ interface StatsGridProps {
     };
     weeklyPoints: number[];
     weeklyCo2: number[];
+    weeklyLabels: string[];
     providerSystem: SocialSystemConfig;
 }
 
-export const StatsGrid: React.FC<StatsGridProps> = ({ stats, weeklyPoints, weeklyCo2, providerSystem }) => {
+export const StatsGrid: React.FC<StatsGridProps> = ({ stats, weeklyPoints, weeklyCo2, weeklyLabels, providerSystem }) => {
     const [infoModalType, setInfoModalType] = useState<'social' | 'co2' | null>(null);
 
     const renderInfoContent = () => {
@@ -82,9 +86,9 @@ export const StatsGrid: React.FC<StatsGridProps> = ({ stats, weeklyPoints, weekl
             <div className="grid grid-cols-2 gap-3 md:gap-4">
                 {/* Card: Total Poin Sosial */}
                 <div className="bg-white dark:bg-stone-900 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                    
+
                     {/* Tombol Bantuan (Pojok Kanan Atas) */}
-                    <button 
+                    <button
                         onClick={() => setInfoModalType('social')}
                         className="absolute top-[10px] right-[10px] z-20 text-stone-300 hover:text-indigo-500 transition-colors p-1 rounded-full hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                     >
@@ -100,39 +104,26 @@ export const StatsGrid: React.FC<StatsGridProps> = ({ stats, weeklyPoints, weekl
                             <span className="text-xs md:text-base font-bold text-stone-600 dark:text-stone-400 leading-tight break-words">Total Nilai Kebaikan</span>
                         </div>
                     </div>
-                    
+
                     <div className="relative z-10">
                         <div className="flex items-baseline gap-1 md:gap-2">
                             <p className="text-2xl md:text-5xl font-extrabold text-stone-900 dark:text-white mb-1 md:mb-2 tracking-tighter truncate">{stats.totalPoints.toLocaleString()}</p>
                             <span className="text-xs md:text-lg font-bold text-indigo-500">Poin</span>
                         </div>
                         <p className="text-[10px] text-stone-500 font-medium mb-1">Tabungan Kebaikan</p>
-                        
+
                         <div className="mt-1 md:mt-2 mb-2 md:mb-6">
                             <p className="text-[8px] md:text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Keaktifan Mingguan</p>
-                            <SimpleBarChart data={weeklyPoints} colorClass="bg-indigo-500 dark:bg-indigo-600" />
-                        </div>
-
-                        {/* Hidden on Mobile to save space */}
-                        <div className="hidden md:block space-y-2 border-t border-stone-100 dark:border-stone-800 pt-4">
-                            <p className="text-xs font-bold text-stone-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-                                <Zap className="w-3 h-3 text-amber-500" /> Cara Menambah Kebaikan:
-                            </p>
-                            {providerSystem.rules.slice(0, 2).map((rule, i) => (
-                                <div key={i} className="flex justify-between items-center text-xs bg-stone-50 dark:bg-stone-800/50 p-2.5 rounded-xl border border-stone-100 dark:border-stone-800">
-                                    <span className="text-stone-700 dark:text-stone-300 font-medium">{rule.action}</span>
-                                    <span className="font-black text-green-600">+{rule.points} Poin</span>
-                                </div>
-                            ))}
+                            <SimpleBarChart data={weeklyPoints} labels={weeklyLabels} colorClass="bg-indigo-500 dark:bg-indigo-600" />
                         </div>
                     </div>
                 </div>
 
                 {/* Card: Dampak Carbon */}
                 <div className="bg-white dark:bg-stone-900 p-3 md:p-6 rounded-2xl md:rounded-3xl border border-stone-200 dark:border-stone-800 shadow-sm flex flex-col justify-between relative overflow-hidden">
-                    
+
                     {/* Tombol Bantuan (Pojok Kanan Atas) */}
-                    <button 
+                    <button
                         onClick={() => setInfoModalType('co2')}
                         className="absolute top-[10px] right-[10px] z-20 text-stone-300 hover:text-emerald-500 transition-colors p-1 rounded-full hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
                     >
@@ -148,7 +139,7 @@ export const StatsGrid: React.FC<StatsGridProps> = ({ stats, weeklyPoints, weekl
                             <span className="text-xs md:text-base font-bold text-stone-600 dark:text-stone-400 leading-tight break-words">Menjaga Bumi</span>
                         </div>
                     </div>
-                    
+
                     <div className="relative z-10">
                         <div className="flex items-baseline gap-1 md:gap-2">
                             <p className="text-2xl md:text-5xl font-extrabold text-stone-900 dark:text-white mb-1 tracking-tighter truncate">
@@ -157,10 +148,10 @@ export const StatsGrid: React.FC<StatsGridProps> = ({ stats, weeklyPoints, weekl
                             <span className="text-xs md:text-lg font-bold text-emerald-500">kg</span>
                         </div>
                         <p className="text-[9px] md:text-xs text-stone-500 font-medium mb-2 md:mb-4 line-clamp-1">Tidak Mubazir (Sayang Dibuang)</p>
-                        
+
                         <div className="mb-2 md:mb-6">
                             <p className="text-[8px] md:text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Tren Mingguan</p>
-                            <SimpleBarChart data={weeklyCo2} colorClass="bg-emerald-500 dark:bg-emerald-600" />
+                            <SimpleBarChart data={weeklyCo2} labels={weeklyLabels} colorClass="bg-emerald-500 dark:bg-emerald-600" />
                         </div>
                     </div>
                 </div>
@@ -171,7 +162,7 @@ export const StatsGrid: React.FC<StatsGridProps> = ({ stats, weeklyPoints, weekl
                 <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center sm:p-4 animate-in fade-in duration-300">
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setInfoModalType(null)}></div>
                     <div className="bg-white dark:bg-stone-900 w-full md:max-w-lg rounded-t-[2.5rem] md:rounded-[2.5rem] shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh] animate-in slide-in-from-bottom duration-500">
-                        
+
                         {/* Header */}
                         <div className={`p-6 md:p-8 pb-12 ${infoModalType === 'social' ? 'bg-indigo-50 dark:bg-indigo-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20'}`}>
                             <div className="flex justify-between items-start">
@@ -208,7 +199,7 @@ export const StatsGrid: React.FC<StatsGridProps> = ({ stats, weeklyPoints, weekl
 
                         {/* Footer */}
                         <div className="p-6 border-t border-stone-100 dark:border-stone-800 bg-stone-50 dark:bg-stone-950">
-                            <button 
+                            <button
                                 onClick={() => setInfoModalType(null)}
                                 className="w-full py-4 rounded-2xl bg-stone-900 dark:bg-stone-800 text-white font-black uppercase tracking-widest text-xs hover:bg-black transition-colors shadow-lg"
                             >

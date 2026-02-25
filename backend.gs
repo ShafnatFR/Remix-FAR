@@ -66,12 +66,21 @@ function doPost(e) {
       case 'VERIFY_ORDER_QR': result = verifyOrderQR(ss, data); break;
       case 'SUBMIT_REVIEW': result = submitReview(ss, data); break;
       case 'SUBMIT_REPORT': result = submitReport(ss, data); break;
+      case 'RESPOND_REPORT': result = respondReport(ss, data.id, data.status); break;
       
       // --- UTILS ---
       case 'UPLOAD_IMAGE': result = uploadImageToDrive(data.base64, data.filename, data.folderType); break;
       case 'GET_FAQS': result = getAllData(ss, 'FAQs'); break;
+      case 'UPSERT_FAQ': result = upsertData(ss, 'FAQs', data); break;
+      case 'DELETE_FAQ': result = deleteData(ss, 'FAQs', data.id); break;
       case 'GET_NOTIFICATIONS': result = getAllData(ss, 'Notifications'); break;
       case 'SEND_BROADCAST': result = addData(ss, 'Notifications', data); break;
+
+      // --- BADGES ---
+      case 'GET_BADGES': result = getAllData(ss, 'Badges'); break;
+      case 'UPSERT_BADGE': result = upsertData(ss, 'Badges', data); break;
+      case 'DELETE_BADGE': result = deleteData(ss, 'Badges', data.id); break;
+
       case 'INIT_DB': result = initDatabase(ss); break;
       
       default:
@@ -111,7 +120,10 @@ function getNextId(sheet) {
   for (let i = 0; i < idValues.length; i++) {
     const val = parseInt(idValues[i]);
     if (!isNaN(val)) {
-      if (val > maxId) maxId = val;
+      // Ignore huge timestamp-like IDs (> 1 billion) to allow recovery to small sequential IDs
+      if (val > maxId && val < 1000000000) {
+        maxId = val;
+      }
     }
   }
   return maxId + 1;
@@ -517,10 +529,13 @@ function addData(ss, sheetName, data) {
   if (!ss) ss = getSpreadsheet(); 
   let sheet = ss.getSheetByName(sheetName);
   const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-  if (!data.id || data.id === "") {
+  
+  // FORCE SEQUENTIAL ID for Notifications to avoid frontend random/timestamp IDs
+  if (!data.id || data.id === "" || sheetName === 'Notifications') {
     const newId = getNextId(sheet);
     data.id = newId;
   }
+  
   if (data.providerId) data.providerId = String(data.providerId);
   delete data.expiryTime; // Hapus expiryTime agar tidak disimpan
   
@@ -816,6 +831,28 @@ function updateClaimStatus(ss, id, status, additionalData) {
   throw new Error("Claim not found");
 }
 
+function respondReport(ss, reportId, newStatus) {
+  if (!ss) ss = getSpreadsheet();
+  let sheet = ss.getSheetByName('Claims');
+  const data = sheet.getDataRange().getValues();
+  const headers = data[0];
+  const idIdx = headers.indexOf('id');
+  const reportStatusIdx = headers.indexOf('reportStatus');
+
+  // reportId comes as "REP-<claimId>", extract the real claim ID
+  const claimId = String(reportId).startsWith('REP-') ? reportId.substring(4) : reportId;
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][idIdx]) == String(claimId)) {
+      if (reportStatusIdx > -1) {
+        sheet.getRange(i + 1, reportStatusIdx + 1).setValue(newStatus);
+      }
+      return { id: claimId, reportStatus: newStatus };
+    }
+  }
+  throw new Error("Claim not found for report response");
+}
+
 function initDatabase(ss) {
   if (!ss) ss = getSpreadsheet();
   const schema = {
@@ -824,7 +861,8 @@ function initDatabase(ss) {
     'Claims': ['id', 'foodId', 'receiverId', 'providerId', 'volunteerId', 'foodName', 'providerName', 'date', 'status', 'rating', 'review', 'reviewMedia', 'isReported', 'reportReason', 'reportDescription', 'reportEvidence', 'imageUrl', 'uniqueCode', 'claimedQuantity', 'deliveryMethod', 'location', 'distributionHours', 'description', 'courierName', 'courierStatus', 'socialImpact', 'isScanned', 'reportStatus'],
     'Addresses': ['id', 'userId', 'label', 'fullAddress', 'receiverName', 'phone', 'isPrimary', 'role'],
     'FAQs': ['id', 'question', 'answer', 'category'],
-    'Notifications': ['id', 'userId', 'title', 'content', 'target', 'status', 'sentAt', 'readCount']
+    'Notifications': ['id', 'userId', 'title', 'content', 'target', 'status', 'sentAt', 'readCount'],
+    'Badges': ['id', 'name', 'role', 'minPoints', 'icon', 'description', 'image', 'awardedTo']
   };
   
   for (let sheetName in schema) {
